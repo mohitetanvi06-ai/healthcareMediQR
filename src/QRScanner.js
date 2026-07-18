@@ -75,18 +75,18 @@ function QRScanner({ onScanSuccess, onClose }) {
 
         {/* Header */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
-          <h5 style={{ margin:0, color:"#4B0082", fontWeight:700 }}>📷 Scan Prescription QR</h5>
+          <h5 style={{ margin:0, color:"#d8b4fe", fontWeight:800, fontSize: "18px" }}>📷 Scan Prescription QR</h5>
           <button onClick={handleClose} style={S.closeBtn}>✕</button>
         </div>
 
         {/* CHOOSE MODE */}
         {mode === "choose" && (
           <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-            <p style={{ color:"#666", fontSize:14, textAlign:"center", marginBottom:4 }}>
+            <p style={{ color:"#ccc", fontSize:14, textAlign:"center", marginBottom:4 }}>
               How would you like to scan the QR code?
             </p>
 
-            <button style={S.optBtn("#4B0082")} onClick={startCamera}>
+            <button style={S.optBtn("#a855f7")} onClick={startCamera}>
               <span style={{ fontSize:30 }}>📷</span>
               <div>
                 <div style={{ fontWeight:700, fontSize:15 }}>Use Camera</div>
@@ -94,7 +94,7 @@ function QRScanner({ onScanSuccess, onClose }) {
               </div>
             </button>
 
-            <button style={S.optBtn("#1a7a4a")} onClick={() => { setMode("file"); setError(null); }}>
+            <button style={S.optBtn("#3b82f6")} onClick={() => { setMode("file"); setError(null); }}>
               <span style={{ fontSize:30 }}>🖼️</span>
               <div>
                 <div style={{ fontWeight:700, fontSize:15 }}>Upload QR Image</div>
@@ -111,13 +111,13 @@ function QRScanner({ onScanSuccess, onClose }) {
           <div>
             {status === "starting" && (
               <div style={S.centerBox}>
-                <div className="spinner-border text-primary" />
-                <p style={{ marginTop:12, color:"#666" }}>Starting camera...</p>
+                <div className="spinner-border text-light" role="status" />
+                <p style={{ marginTop:12, color:"#ccc" }}>Starting camera...</p>
               </div>
             )}
             <div id="qr-cam-container" style={{ width:"100%", borderRadius:14, overflow:"hidden", background:"#000", minHeight: status === "scanning" ? 280 : 0 }} />
             {status === "scanning" && (
-              <p style={{ textAlign:"center", color:"#4B0082", fontWeight:600, marginTop:12 }}>
+              <p style={{ textAlign:"center", color:"#d8b4fe", fontWeight:600, marginTop:12 }}>
                 📡 Point camera at QR code...
               </p>
             )}
@@ -137,8 +137,8 @@ function QRScanner({ onScanSuccess, onClose }) {
 
             <div style={S.uploadZone}>
               <span style={{ fontSize:48 }}>🖼️</span>
-              <p style={{ fontWeight:700, color:"#1a7a4a", margin:"10px 0 4px" }}>Upload QR Code Image</p>
-              <p style={{ fontSize:13, color:"#888", marginBottom:16 }}>
+              <p style={{ fontWeight:700, color:"#3b82f6", margin:"10px 0 4px" }}>Upload QR Code Image</p>
+              <p style={{ fontSize:13, color:"#ccc", marginBottom:16 }}>
                 Select the QR image your doctor sent you (PNG/JPG)
               </p>
               <label style={S.uploadLabel}>
@@ -164,46 +164,54 @@ function QRScanner({ onScanSuccess, onClose }) {
 // ── Styles ──
 const S = {
   overlay: {
-    position:"fixed", inset:0, background:"rgba(0,0,0,0.65)",
+    position:"fixed", inset:0, background:"rgba(10, 5, 25, 0.8)",
+    backdropFilter: "blur(6px)",
     display:"flex", alignItems:"center", justifyContent:"center",
     zIndex:10000, padding:20,
   },
   modal: {
-    background:"white", borderRadius:22, padding:26,
+    background:"rgba(30, 20, 50, 0.95)",
+    backdropFilter:"blur(20px)",
+    borderRadius:22, padding:26,
     width:"100%", maxWidth:420,
-    boxShadow:"0 20px 60px rgba(0,0,0,0.4)",
+    boxShadow:"0 20px 60px rgba(0,0,0,0.6)",
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    color: "white",
   },
   closeBtn: {
-    background:"#f1f1f1", border:"none", borderRadius:"50%",
-    width:34, height:34, fontSize:16, cursor:"pointer",
+    background:"rgba(255,255,255,0.08)", border:"none", borderRadius:"50%",
+    width:34, height:34, fontSize:16, cursor:"pointer", color: "white",
     display:"flex", alignItems:"center", justifyContent:"center",
+    transition: "background 0.2s",
   },
   optBtn: (color) => ({
     display:"flex", alignItems:"center", gap:16,
     background:`linear-gradient(135deg, ${color}, ${color}cc)`,
     color:"white", border:"none", borderRadius:16,
     padding:"16px 20px", cursor:"pointer", textAlign:"left",
-    boxShadow:`0 4px 16px ${color}44`, transition:"opacity 0.2s",
+    boxShadow:`0 4px 16px ${color}44`, transition:"all 0.3s ease",
   }),
   cancelBtn: {
-    width:"100%", padding:"10px", background:"#f1f1f1",
-    border:"none", borderRadius:50, fontWeight:600, cursor:"pointer", fontSize:14,
+    width:"100%", padding:"11px", background:"rgba(255,255,255,0.06)",
+    color: "white", border:"none", borderRadius:50, fontWeight:600, cursor:"pointer", fontSize:14,
+    transition: "background 0.2s",
   },
   centerBox: {
     display:"flex", flexDirection:"column", alignItems:"center", padding:"28px 0",
   },
   errorBox: {
-    background:"#ffeaea", border:"1px solid #f5c6c6", borderRadius:12,
-    padding:"12px 16px", color:"#c0392b", marginTop:12, fontSize:13,
+    background:"rgba(255,85,85,0.1)", border:"1px solid #ff5555", borderRadius:12,
+    padding:"12px 16px", color:"#ff8888", marginTop:12, fontSize:13,
   },
   uploadZone: {
-    border:"2.5px dashed #b2f0d8", borderRadius:16, padding:"30px 20px",
-    textAlign:"center", background:"#f0fff8",
+    border:"2px dashed rgba(168, 85, 247, 0.4)", borderRadius:16, padding:"30px 20px",
+    textAlign:"center", background:"rgba(255,255,255,0.02)",
   },
   uploadLabel: {
-    background:"linear-gradient(135deg,#2ecc71,#1abc9c)", color:"white",
+    background:"linear-gradient(135deg,#3b82f6,#818cf8)", color:"white",
     border:"none", borderRadius:50, padding:"11px 28px",
     fontWeight:700, cursor:"pointer", fontSize:14, display:"inline-block",
+    boxShadow: "0 4px 12px rgba(59,130,246,0.3)",
   },
 };
 

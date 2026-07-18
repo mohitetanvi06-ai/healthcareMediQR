@@ -41,7 +41,7 @@ function Login() {
         {`
           .login-wrapper {
             min-height: 90vh;
-            background-image: url("https://myqrcode.com/wp-content/uploads/2024/04/QR-Codes-for-Prescription-Reordering-and-Healthcare-Appointments_Main-Illustration.webp");
+            background-image: linear-gradient(rgba(10, 5, 25, 0.9), rgba(20, 10, 45, 0.9)), url("https://myqrcode.com/wp-content/uploads/2024/04/QR-Codes-for-Prescription-Reordering-and-Healthcare-Appointments_Main-Illustration.webp");
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
@@ -54,12 +54,15 @@ function Login() {
           .login-card {
             width: 100%;
             max-width: 440px;
-            background: rgba(255,255,255,0.95);
-            backdrop-filter: blur(10px);
+            background: rgba(30, 20, 50, 0.55);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border-radius: 24px;
+            border: 1px solid rgba(255,255,255,0.08);
             padding: clamp(20px, 5vw, 40px);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
             animation: fadeIn 0.6s ease-in-out;
+            color: white;
           }
 
           @keyframes fadeIn {
@@ -68,28 +71,38 @@ function Login() {
           }
 
           .page-title {
-            font-weight: 800;
-            color: #4B0082;
-            margin-bottom: 20px;
-            font-size: clamp(20px, 5vw, 26px);
+            font-weight: 900;
+            background: linear-gradient(135deg, #d8b4fe, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 24px;
+            font-size: clamp(20px, 5vw, 28px);
+            letter-spacing: -0.5px;
           }
 
           .form-control {
             border-radius: 12px;
-            padding: 12px 15px;
-            border: 1.5px solid #ddd;
-            transition: 0.3s;
+            padding: 13px 16px;
+            border: 1.5px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.05);
+            color: white !important;
+            transition: all 0.3s;
             font-size: 15px;
           }
 
+          .form-control::placeholder {
+            color: rgba(255,255,255,0.45);
+          }
+
           .form-control:focus {
-            box-shadow: 0 0 8px rgba(75, 0, 130, 0.3);
-            border-color: #4B0082;
+            box-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
+            border-color: #a855f7;
+            background: rgba(255,255,255,0.08);
             outline: none;
           }
 
           .login-btn {
-            background: linear-gradient(135deg, #4B0082, #1e90ff);
+            background: linear-gradient(135deg, #a855f7, #3b82f6);
             border: none;
             border-radius: 50px;
             padding: 13px;
@@ -98,27 +111,40 @@ function Login() {
             color: white;
             width: 100%;
             cursor: pointer;
-            transition: 0.3s;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(168,85,247,0.3);
           }
 
-          .login-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+          .login-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(168,85,247,0.5);
+            opacity: 1;
+          }
+          
+          .login-btn:disabled {
+            opacity: 0.6;
+          }
 
           .register-link {
-            color: #4B0082;
+            color: #d8b4fe;
             cursor: pointer;
             font-weight: 700;
             text-decoration: underline;
           }
 
-          .navbar { padding: 12px 16px !important; }
-          .navbar h3 { font-size: clamp(16px, 4vw, 22px); }
+          .navbar {
+            padding: 14px 28px !important;
+            background: rgba(20, 10, 45, 0.7) !important;
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+          }
+          .navbar h3 { font-size: clamp(18px, 4vw, 24px); letter-spacing: -0.5px; }
         `}
       </style>
        
        {/* ================= NAVBAR (Dark Purple) ================= */}
       <nav
         className="navbar navbar-expand-lg px-5 py-3"
-        style={{ backgroundColor: "#4B0082" }}
       >
         <div className="d-flex align-items-center">
   <img
@@ -127,12 +153,14 @@ function Login() {
     width="45" 
     height="45"
     className="me-2"
+    style={{ borderRadius: "10px", border: "1px solid rgba(255,255,255,0.1)" }}
   />
-        <h3 className="fw-bold text-white">MedQRate</h3>
+        <h3 className="fw-bold text-white mb-0">MedQRate</h3>
        </div>
         <div className="ms-auto">
           <button
-            className="btn btn-light px-4 rounded-pill fw-semibold"
+            className="btn px-4 rounded-pill fw-semibold"
+            style={{ background: "linear-gradient(135deg, #a855f7, #3b82f6)", color: "white", border: "none", boxShadow: "0 4px 12px rgba(168,85,247,0.3)" }}
             onClick={() => navigate("/register")}
           >
             Get Started
