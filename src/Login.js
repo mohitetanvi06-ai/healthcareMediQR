@@ -6,7 +6,6 @@ import "bootstrap/dist/css/bootstrap.min.css";
 const API = process.env.REACT_APP_API_URL || "http://localhost:8080/api";
 
 function Login() {
-
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,171 +25,285 @@ function Login() {
         navigate("/doctor-home");
       }
     } catch (err) {
-      setError("❌ Invalid email or password. Please try again.");
+      setError("Invalid email or password. Please verify your credentials.");
     } finally {
       setLoading(false);
     }
   };
 
-  
-
+  const handleQuickFill = (role) => {
+    if (role === "doctor") {
+      setEmail("doctor@medqrate.com");
+      setPassword("password123");
+    } else {
+      setEmail("patient@medqrate.com");
+      setPassword("password123");
+    }
+  };
 
   return (
-    <>
-      <style>
-        {`
-          .login-wrapper {
-            min-height: 90vh;
-            background-image: url("https://myqrcode.com/wp-content/uploads/2024/04/QR-Codes-for-Prescription-Reordering-and-Healthcare-Appointments_Main-Illustration.webp");
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 16px;
-          }
+    <div style={{ backgroundColor: "#F8FAFC", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <style>{`
+        .auth-navbar {
+          background: #FFFFFF;
+          border-bottom: 1px solid #E2E8F0;
+          padding: 14px 28px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+        }
+        .auth-logo {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          text-decoration: none;
+          cursor: pointer;
+        }
+        .logo-icon-badge {
+          width: 40px;
+          height: 40px;
+          background: linear-gradient(135deg, #0D9488 0%, #0284C7 100%);
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-size: 20px;
+        }
+        .auth-logo h3 {
+          color: #0F172A;
+          font-weight: 800;
+          margin: 0;
+          font-size: 20px;
+          letter-spacing: -0.03em;
+        }
+        .auth-logo span {
+          color: #0D9488;
+        }
+        .btn-register-top {
+          background: #F1F5F9;
+          color: #334155;
+          border: 1px solid #CBD5E1;
+          border-radius: 10px;
+          padding: 8px 18px;
+          font-weight: 600;
+          font-size: 13.5px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .btn-register-top:hover {
+          background: #E2E8F0;
+          color: #0F172A;
+        }
 
-          .login-card {
-            width: 100%;
-            max-width: 440px;
-            background: rgba(255,255,255,0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 24px;
-            padding: clamp(20px, 5vw, 40px);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
-            animation: fadeIn 0.6s ease-in-out;
-          }
+        .auth-wrapper {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 40px 16px;
+          background: radial-gradient(circle at 50% 10%, #F0FDFA 0%, #F8FAFC 70%);
+        }
+        .auth-card {
+          width: 100%;
+          max-width: 440px;
+          background: #FFFFFF;
+          border: 1px solid #E2E8F0;
+          border-radius: 20px;
+          padding: 36px 32px;
+          box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.06), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+          animation: fadeUp 0.35s ease;
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(14px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .auth-title {
+          font-size: 24px;
+          font-weight: 800;
+          color: #0F172A;
+          margin-bottom: 6px;
+        }
+        .auth-sub {
+          color: #64748B;
+          font-size: 14px;
+          margin-bottom: 24px;
+        }
+        .form-label {
+          font-size: 13.5px;
+          font-weight: 600;
+          color: #334155;
+          margin-bottom: 6px;
+          display: block;
+        }
+        .auth-input {
+          width: 100%;
+          padding: 12px 14px;
+          border: 1.5px solid #CBD5E1;
+          border-radius: 10px;
+          font-size: 14.5px;
+          color: #0F172A;
+          outline: none;
+          transition: all 0.2s ease;
+          box-sizing: border-box;
+          margin-bottom: 18px;
+        }
+        .auth-input:focus {
+          border-color: #0D9488;
+          box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+        }
+        .btn-auth-submit {
+          width: 100%;
+          background: linear-gradient(135deg, #0D9488 0%, #0284C7 100%);
+          color: #FFFFFF;
+          border: none;
+          border-radius: 10px;
+          padding: 13px;
+          font-weight: 700;
+          font-size: 15px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
+          margin-top: 4px;
+        }
+        .btn-auth-submit:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 16px rgba(13, 148, 136, 0.35);
+        }
+        .btn-auth-submit:disabled {
+          opacity: 0.65;
+          cursor: not-allowed;
+        }
+        .error-banner {
+          background: #FEF2F2;
+          border: 1px solid #FEE2E2;
+          color: #991B1B;
+          border-radius: 10px;
+          padding: 11px 14px;
+          font-size: 13.5px;
+          margin-bottom: 18px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .quick-fill-box {
+          background: #F8FAFC;
+          border: 1px dashed #CBD5E1;
+          border-radius: 10px;
+          padding: 12px;
+          margin-top: 20px;
+          font-size: 12.5px;
+          color: #475569;
+        }
+        .quick-fill-btn {
+          background: #FFFFFF;
+          border: 1px solid #CBD5E1;
+          border-radius: 6px;
+          padding: 3px 10px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #0F766E;
+          cursor: pointer;
+          margin-left: 6px;
+          transition: background 0.15s ease;
+        }
+        .quick-fill-btn:hover {
+          background: #F0FDFA;
+          border-color: #99F6E4;
+        }
+      `}</style>
 
-          @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(24px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-
-          .page-title {
-            font-weight: 800;
-            color: #4B0082;
-            margin-bottom: 20px;
-            font-size: clamp(20px, 5vw, 26px);
-          }
-
-          .form-control {
-            border-radius: 12px;
-            padding: 12px 15px;
-            border: 1.5px solid #ddd;
-            transition: 0.3s;
-            font-size: 15px;
-          }
-
-          .form-control:focus {
-            box-shadow: 0 0 8px rgba(75, 0, 130, 0.3);
-            border-color: #4B0082;
-            outline: none;
-          }
-
-          .login-btn {
-            background: linear-gradient(135deg, #4B0082, #1e90ff);
-            border: none;
-            border-radius: 50px;
-            padding: 13px;
-            font-weight: 700;
-            font-size: 16px;
-            color: white;
-            width: 100%;
-            cursor: pointer;
-            transition: 0.3s;
-          }
-
-          .login-btn:hover { opacity: 0.9; transform: translateY(-1px); }
-
-          .register-link {
-            color: #4B0082;
-            cursor: pointer;
-            font-weight: 700;
-            text-decoration: underline;
-          }
-
-          .navbar { padding: 12px 16px !important; }
-          .navbar h3 { font-size: clamp(16px, 4vw, 22px); }
-        `}
-      </style>
-       
-       {/* ================= NAVBAR (Dark Purple) ================= */}
-      <nav
-        className="navbar navbar-expand-lg px-5 py-3"
-        style={{ backgroundColor: "#4B0082" }}
-      >
-        <div className="d-flex align-items-center">
-  <img
-    src="https://img.freepik.com/premium-photo/scanning-qr-code-qr-code-verification-download-page-mobile-apps_95505-425.jpg"
-    alt="MedQRate Logo"
-    width="45" 
-    height="45"
-    className="me-2"
-  />
-        <h3 className="fw-bold text-white">MedQRate</h3>
-       </div>
-        <div className="ms-auto">
-          <button
-            className="btn btn-light px-4 rounded-pill fw-semibold"
-            onClick={() => navigate("/register")}
-          >
-            Get Started
-          </button>
+      {/* ── NAVBAR ── */}
+      <nav className="auth-navbar">
+        <div className="auth-logo" onClick={() => navigate("/")}>
+          <div className="logo-icon-badge">🩺</div>
+          <h3>Med<span>QRate</span></h3>
         </div>
+        <button className="btn-register-top" onClick={() => navigate("/register")}>
+          Need an account? <strong>Register</strong>
+        </button>
       </nav>
-      
 
-      <div className="login-wrapper">
-        <div className="login-card">
-
-          <h2 className="text-center page-title">
-            🔐 Welcome Back
-          </h2>
+      {/* ── LOGIN FORM CARD ── */}
+      <div className="auth-wrapper">
+        <div className="auth-card">
+          <div className="d-flex align-items-center gap-2 mb-2">
+            <span style={{ fontSize: "20px" }}>🔐</span>
+            <h2 className="auth-title mb-0">Sign In to MedQRate</h2>
+          </div>
+          <p className="auth-sub">Enter your credentials to access your dashboard</p>
 
           {error && (
-            <div style={{ background:"#fff0f0", border:"1.5px solid #ffcccc", color:"#cc0000", borderRadius:10, padding:"10px 14px", marginBottom:12, fontSize:14 }}>
-              {error}
+            <div className="error-banner">
+              <span>⚠️</span>
+              <div>{error}</div>
             </div>
           )}
 
           <form onSubmit={handleLogin}>
+            <div>
+              <label className="form-label">Email Address</label>
+              <input
+                type="email"
+                className="auth-input"
+                placeholder="doctor@medqrate.com or patient@medqrate.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
 
-            <input
-              type="email"
-              className="form-control mb-3"
-              placeholder="Email Address"
-              onChange={e => setEmail(e.target.value)}
-              required
-            />
+            <div>
+              <label className="form-label">Password</label>
+              <input
+                type="password"
+                className="auth-input"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
 
-            <input
-              type="password"
-              className="form-control mb-4"
-              placeholder="Password"
-              onChange={e => setPassword(e.target.value)}
-              required
-            />
-
-            <button className="login-btn w-100" disabled={loading}>
-              {loading ? "⏳ Logging in..." : "Login"}
+            <button className="btn-auth-submit" type="submit" disabled={loading}>
+              {loading ? "Authenticating..." : "Sign In to Portal"}
             </button>
-
           </form>
 
-          <p className="text-center mt-3">
+          {/* Quick Demo Credentials for evaluators */}
+          <div className="quick-fill-box">
+            <div className="fw-semibold mb-1 text-slate-700">⚡ Demo Autofill:</div>
+            <div className="d-flex gap-2 flex-wrap">
+              <button
+                type="button"
+                className="quick-fill-btn"
+                onClick={() => handleQuickFill("doctor")}
+              >
+                🩺 Doctor Demo
+              </button>
+              <button
+                type="button"
+                className="quick-fill-btn"
+                onClick={() => handleQuickFill("patient")}
+              >
+                👤 Patient Demo
+              </button>
+            </div>
+          </div>
+
+          <p className="text-center mt-4 mb-0" style={{ fontSize: "14px", color: "#64748B" }}>
             Don't have an account?{" "}
             <span
-              className="register-link"
+              style={{ color: "#0D9488", fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}
               onClick={() => navigate("/register")}
             >
-              Register
+              Register here
             </span>
           </p>
-
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

@@ -27,3 +27,4 @@ yarn-error.log*
 
 # Backend dependencies
 backend/node_modules/
+backend-springboot/target/

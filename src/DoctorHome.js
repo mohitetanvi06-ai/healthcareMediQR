@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { QRCodeCanvas } from "qrcode.react";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -8,7 +8,6 @@ const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8080/api";
 function DoctorHome() {
   const user      = JSON.parse(localStorage.getItem("user"));
   const doctorId  = user?.id;
-  const qrRef     = useRef(null);
 
   const [appointments, setAppointments] = useState([]);
   const [patients,     setPatients]     = useState([]);
@@ -53,13 +52,13 @@ function DoctorHome() {
   };
 
   const handleSendPrescription = async () => {
-    if (!preview) { alert("Please upload prescription image."); return; }
+    if (!preview) { alert("Please upload a prescription image."); return; }
     try {
       setLoading(true);
       await axios.put(`${BASE_URL}/appointments/approve/${selectedAppt.id}`, { imagePath: preview });
-      alert("✅ Prescription sent successfully!");
+      alert("Prescription submitted and sent to patient successfully!");
       setSelectedAppt(null); setPreview(null); loadAppointments();
-    } catch { alert("Error sending prescription"); }
+    } catch { alert("Error sending prescription. Please try again."); }
     finally { setLoading(false); }
   };
 
@@ -96,7 +95,7 @@ function DoctorHome() {
   // ── Share on WhatsApp ──
   const handleWhatsApp = () => {
     const text = encodeURIComponent(
-      `💊 *MedQRate Prescription*\n\nPatient: ${rxForm.patientName}\nDoctor: Dr. ${rxForm.doctorName}\nMedicine: ${rxForm.medicine}\nDosage: ${rxForm.dosage}\nFrequency: ${rxForm.frequency}\nDuration: ${rxForm.duration}\nInstructions: ${rxForm.instructions}\n\n📲 Download the QR image from the app and upload it on your Patient Dashboard to view the full prescription.`
+      `💊 *MedQRate Prescription*\n\nPatient: ${rxForm.patientName}\nDoctor: Dr. ${rxForm.doctorName}\nMedicine: ${rxForm.medicine}\nDosage: ${rxForm.dosage}\nFrequency: ${rxForm.frequency}\nDuration: ${rxForm.duration}\nInstructions: ${rxForm.instructions}\n\n📲 Download the QR code from the MedQRate portal to store your prescription securely.`
     );
     window.open(`https://wa.me/?text=${text}`, "_blank");
   };
@@ -109,83 +108,275 @@ function DoctorHome() {
   };
 
   return (
-    <>
+    <div style={{ backgroundColor: "#F8FAFC", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <style>{`
-        .dash-card { border-radius:18px; border:none; box-shadow:0 4px 20px rgba(0,0,0,0.07); transition:transform 0.2s; }
-        .dash-card:hover { transform:translateY(-3px); }
-        .appt-card { border-radius:16px; border:none; box-shadow:0 3px 14px rgba(0,0,0,0.06); border-left:5px solid #4B0082; margin-bottom:14px; }
-        .qr-wrap { background:rgba(240,244,255,0.92); backdrop-filter:blur(8px); border-radius:20px; padding:28px; border:2px solid #ddd6ff; }
-        .gen-btn { background:linear-gradient(135deg,#4B0082,#1e90ff); color:white; border:none; border-radius:50px; padding:10px 26px; font-weight:700; cursor:pointer; transition:opacity 0.2s; }
-        .gen-btn:hover { opacity:0.88; }
-        .dl-btn { background:linear-gradient(135deg,#2ecc71,#27ae60); color:white; border:none; border-radius:50px; padding:10px 22px; font-weight:700; cursor:pointer; }
-        .wa-btn { background:linear-gradient(135deg,#25D366,#128C7E); color:white; border:none; border-radius:50px; padding:10px 22px; font-weight:700; cursor:pointer; }
-        .qr-result { background:rgba(255,255,255,0.95); border-radius:20px; padding:26px; box-shadow:0 8px 32px rgba(75,0,130,0.13); margin-top:22px; animation:fadeUp 0.35s ease; text-align:center; }
-        @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
-        .rx-table { background:#f8f5ff; border-radius:12px; padding:14px 18px; text-align:left; margin:16px 0; font-size:13px; }
-        .rx-row { display:flex; gap:8px; padding:5px 0; border-bottom:1px solid #ede8ff; }
-        .rx-row:last-child { border-bottom:none; }
-        .rx-lbl { font-weight:700; color:#4B0082; min-width:120px; }
-        .step-badge { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:50%; background:#4B0082; color:white; font-weight:700; font-size:13px; margin-right:8px; flex-shrink:0; }
-        .step-row { display:flex; align-items:flex-start; padding:8px 0; font-size:14px; color:#444; }
-        .upload-zone { border:2px dashed #c8b8f0; border-radius:14px; padding:24px; text-align:center; background:#faf8ff; cursor:pointer; transition:border-color 0.2s; }
-        .upload-zone:hover { border-color:#4B0082; }
-        .sec-card-doc { background:rgba(255,255,255,0.88); backdrop-filter:blur(8px); border-radius:18px; padding:22px; box-shadow:0 4px 18px rgba(0,0,0,0.07); margin-bottom:22px; }
+        /* ── NAVBAR ── */
+        .doc-navbar {
+          background: #FFFFFF;
+          border-bottom: 1px solid #E2E8F0;
+          box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+          position: sticky;
+          top: 0;
+          z-index: 100;
+        }
+        .logo-icon-badge {
+          width: 38px;
+          height: 38px;
+          background: linear-gradient(135deg, #0D9488 0%, #0284C7 100%);
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-size: 19px;
+        }
+        .user-pill {
+          background: #F1F5F9;
+          border: 1px solid #E2E8F0;
+          border-radius: 30px;
+          padding: 6px 14px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .btn-logout {
+          background: #FEF2F2;
+          color: #DC2626;
+          border: 1px solid #FEE2E2;
+          border-radius: 8px;
+          padding: 6px 14px;
+          font-weight: 600;
+          font-size: 13px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .btn-logout:hover {
+          background: #FEE2E2;
+          color: #B91C1C;
+        }
+
+        /* ── STATS CARDS ── */
+        .stat-card {
+          background: #FFFFFF;
+          border: 1px solid #E2E8F0;
+          border-radius: 16px;
+          padding: 22px;
+          display: flex;
+          align-items: center;
+          gap: 18px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .stat-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 16px -4px rgba(15, 23, 42, 0.06);
+        }
+        .stat-icon-box {
+          width: 52px;
+          height: 52px;
+          border-radius: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 24px;
+          flex-shrink: 0;
+        }
+        .stat-num {
+          font-size: 28px;
+          font-weight: 800;
+          color: #0F172A;
+          line-height: 1;
+        }
+        .stat-label {
+          color: #64748B;
+          font-size: 13px;
+          font-weight: 600;
+          margin-top: 4px;
+        }
+
+        /* ── APPOINTMENT CARD ── */
+        .appt-card {
+          background: #FFFFFF;
+          border: 1px solid #E2E8F0;
+          border-radius: 14px;
+          padding: 18px 20px;
+          margin-bottom: 12px;
+          border-left: 4px solid #0D9488;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+        }
+
+        /* ── QR GENERATOR ── */
+        .qr-wrap {
+          background: #FFFFFF;
+          border: 1px solid #E2E8F0;
+          border-radius: 18px;
+          padding: 26px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        }
+        .qr-result {
+          background: #F8FAFC;
+          border: 1px solid #E2E8F0;
+          border-radius: 16px;
+          padding: 24px;
+          margin-top: 20px;
+          text-align: center;
+          animation: fadeUp 0.3s ease;
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .rx-table {
+          background: #FFFFFF;
+          border: 1px solid #E2E8F0;
+          border-radius: 12px;
+          padding: 14px 18px;
+          text-align: left;
+          margin: 16px 0;
+          font-size: 13.5px;
+        }
+        .rx-row {
+          display: flex;
+          gap: 12px;
+          padding: 6px 0;
+          border-bottom: 1px solid #F1F5F9;
+        }
+        .rx-row:last-child {
+          border-bottom: none;
+        }
+        .rx-lbl {
+          font-weight: 700;
+          color: #0F766E;
+          min-width: 120px;
+        }
+        .upload-zone {
+          border: 2px dashed #CBD5E1;
+          border-radius: 14px;
+          padding: 28px 20px;
+          text-align: center;
+          background: #F8FAFC;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .upload-zone:hover {
+          border-color: #0D9488;
+          background: #F0FDFA;
+        }
+        .badge-pending {
+          background: #FFFBEB;
+          color: #B45309;
+          border: 1px solid #FDE68A;
+          border-radius: 20px;
+          padding: 4px 12px;
+          font-size: 12px;
+          font-weight: 600;
+        }
+        .badge-approved {
+          background: #ECFDF5;
+          color: #065F46;
+          border: 1px solid #A7F3D0;
+          border-radius: 20px;
+          padding: 4px 12px;
+          font-size: 12px;
+          font-weight: 600;
+        }
       `}</style>
 
       {/* ── NAVBAR ── */}
-      <nav className="navbar navbar-expand-lg px-4 px-md-5 py-3" style={{ background:"linear-gradient(135deg,#4B0082,#2c0060)", boxShadow:"0 4px 20px rgba(75,0,130,0.3)" }}>
-        <div className="d-flex align-items-center">
-          <span style={{ fontSize:28, marginRight:10 }}>🏥</span>
+      <nav className="navbar px-4 px-md-5 py-3 doc-navbar">
+        <div className="d-flex align-items-center gap-2">
+          <div className="logo-icon-badge">🩺</div>
           <div>
-            <h5 className="fw-bold text-white mb-0">MedQRate</h5>
-            <div style={{ fontSize:11, color:"#d4b8ff" }}>Doctor Dashboard</div>
+            <h5 className="fw-bold mb-0" style={{ color: "#0F172A", fontSize: "18px" }}>
+              Med<span style={{ color: "#0D9488" }}>QRate</span>
+            </h5>
+            <div style={{ fontSize: "11px", color: "#64748B", fontWeight: 600 }}>Doctor Clinical Desk</div>
           </div>
         </div>
+
         <div className="ms-auto d-flex align-items-center gap-3">
-          <div className="text-white text-end d-none d-md-block">
-            <div className="fw-bold">Dr. {user?.name} 👨‍⚕️</div>
-            <div style={{ fontSize:12, opacity:0.75 }}>General Practitioner</div>
+          <div className="user-pill d-none d-md-flex">
+            <span style={{ fontSize: "16px" }}>👨‍⚕️</span>
+            <div style={{ fontSize: "13px" }}>
+              <strong>Dr. {user?.name || "Doctor"}</strong>
+              <span className="text-muted ms-1">({user?.speciality || "Physician"})</span>
+            </div>
           </div>
-          <button className="btn btn-light btn-sm rounded-pill px-4 fw-bold"
-            onClick={() => { localStorage.removeItem("user"); window.location = "/"; }}>
-            Logout
+          <button
+            className="btn-logout"
+            onClick={() => { localStorage.removeItem("user"); window.location = "/"; }}
+          >
+            Sign Out
           </button>
         </div>
       </nav>
 
-      <div className="container py-4">
+      {/* ── MAIN DASHBOARD CONTAINER ── */}
+      <div className="container py-4" style={{ flex: 1, maxWidth: "1080px" }}>
 
-        {/* ── STATS ── */}
-        <div className="row g-4 mb-4">
-          {[
-            { icon:"📅", label:"Appointments", val: appointments.length, color:"#1e90ff", bg:"#e8f4ff" },
-            { icon:"👨‍👩‍👧", label:"Total Patients", val: patients.length,  color:"#2ecc71", bg:"#e8fff4" },
-            { icon:"✅", label:"Approved",      val: appointments.filter(a=>a.status==="APPROVED").length, color:"#9b59b6", bg:"#f5f0ff" },
-          ].map((s,i) => (
-            <div className="col-md-4" key={i}>
-              <div className="dash-card card p-4 text-center">
-                <div style={{ fontSize:36, marginBottom:6 }}>{s.icon}</div>
-                <h2 className="fw-bold mb-0" style={{ color:s.color }}>{s.val}</h2>
-                <div className="text-muted mt-1" style={{ fontSize:14 }}>{s.label}</div>
+        {/* ── STATS OVERVIEW ── */}
+        <div className="row g-3 mb-4">
+          <div className="col-md-4">
+            <div className="stat-card">
+              <div className="stat-icon-box" style={{ background: "#EFF6FF", color: "#0284C7" }}>
+                📅
+              </div>
+              <div>
+                <div className="stat-num">{appointments.length}</div>
+                <div className="stat-label">Total Appointments</div>
               </div>
             </div>
-          ))}
+          </div>
+
+          <div className="col-md-4">
+            <div className="stat-card">
+              <div className="stat-icon-box" style={{ background: "#F0FDFA", color: "#0D9488" }}>
+                👥
+              </div>
+              <div>
+                <div className="stat-num">{patients.length}</div>
+                <div className="stat-label">Registered Patients</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="col-md-4">
+            <div className="stat-card">
+              <div className="stat-icon-box" style={{ background: "#ECFDF5", color: "#10B981" }}>
+                ✅
+              </div>
+              <div>
+                <div className="stat-num">
+                  {appointments.filter(a => a.status === "APPROVED").length}
+                </div>
+                <div className="stat-label">Approved & Discharged</div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* ── ALL USERS ── */}
+        {/* ── ALL USERS TOGGLE ── */}
         <div className="mb-4">
-          <button className="btn btn-outline-secondary rounded-pill" onClick={handleShowRegisters}>
-            {showRegisters ? "▲ Hide Registered Users" : "▼ Show All Registered Users"}
+          <button
+            className="btn btn-light btn-sm"
+            style={{ border: "1px solid #CBD5E1", borderRadius: "8px", fontWeight: 600, color: "#475569" }}
+            onClick={handleShowRegisters}
+          >
+            {showRegisters ? "▲ Hide Registered Directory" : "▼ View Registered Doctors & Patients"}
           </button>
+
           {showRegisters && (
-            <div className="mt-3">
-              <h6 className="fw-bold mb-3">All Registered Users</h6>
+            <div className="mt-3 p-3 bg-white rounded-3 border" style={{ borderColor: "#E2E8F0" }}>
+              <h6 className="fw-bold mb-3" style={{ fontSize: "14px" }}>System Directory ({allUsers.length} users)</h6>
               <div className="row g-2">
                 {allUsers.map(u => (
                   <div className="col-md-4" key={u.id}>
-                    <div className="card p-3 rounded-3 border-0 shadow-sm d-flex flex-row align-items-center gap-3">
-                      <span style={{ fontSize:22 }}>{u.role === "DOCTOR" ? "🩺" : "👤"}</span>
-                      <div><div className="fw-bold" style={{ fontSize:14 }}>{u.name}</div><div className="text-muted" style={{ fontSize:12 }}>{u.role}</div></div>
+                    <div className="p-2 px-3 rounded-2 border d-flex align-items-center gap-2" style={{ background: "#F8FAFC", borderColor: "#E2E8F0" }}>
+                      <span>{u.role === "DOCTOR" ? "🩺" : "👤"}</span>
+                      <div>
+                        <div className="fw-semibold" style={{ fontSize: "13px" }}>{u.name}</div>
+                        <div style={{ fontSize: "11.5px", color: "#64748B" }}>{u.role} • {u.email}</div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -194,219 +385,270 @@ function DoctorHome() {
           )}
         </div>
 
-        {/* ── APPOINTMENTS ── */}
-        <h4 className="fw-bold mb-3">📥 Appointment Requests</h4>
-        {appointments.length === 0 && <p className="text-muted">No appointments yet.</p>}
-        {appointments.map(app => (
-          <div key={app.id} className="appt-card card p-4">
-            <div className="d-flex align-items-start justify-content-between flex-wrap gap-3">
-              <div>
-                <h6 className="fw-bold mb-1">🧑 {app.patient?.name}</h6>
-                <p className="mb-1 text-muted" style={{ fontSize:13 }}>📝 {app.enquiry}</p>
+        {/* ── APPOINTMENT REQUESTS ── */}
+        <div className="mb-5">
+          <div className="d-flex align-items-center justify-content-between mb-3">
+            <h5 className="fw-bold mb-0" style={{ fontSize: "18px" }}>
+              📥 Patient Consultation Requests
+            </h5>
+            <span style={{ fontSize: "13px", color: "#64748B" }}>
+              {appointments.filter(a => a.status === "PENDING").length} Pending
+            </span>
+          </div>
+
+          {appointments.length === 0 && (
+            <div className="p-4 bg-white rounded-3 border text-center text-muted" style={{ borderColor: "#E2E8F0", fontSize: "14px" }}>
+              No incoming appointment requests at this moment.
+            </div>
+          )}
+
+          {appointments.map(app => (
+            <div key={app.id} className="appt-card">
+              <div className="d-flex align-items-start justify-content-between flex-wrap gap-3">
+                <div>
+                  <div className="d-flex align-items-center gap-2">
+                    <span style={{ fontSize: "18px" }}>🧑</span>
+                    <h6 className="fw-bold mb-0" style={{ fontSize: "15px", color: "#0F172A" }}>
+                      {app.patient?.name}
+                    </h6>
+                    <span className="text-muted" style={{ fontSize: "12px" }}>({app.patient?.email})</span>
+                  </div>
+                  <p className="mb-0 mt-2 text-slate-700" style={{ fontSize: "13.5px" }}>
+                    <strong>Chief Complaint:</strong> {app.enquiry}
+                  </p>
+                </div>
+
+                <div className="d-flex align-items-center gap-2">
+                  {app.status === "PENDING" && (
+                    <button
+                      className="btn-primary-medical"
+                      style={{ padding: "6px 16px", fontSize: "13px" }}
+                      onClick={() => { setSelectedAppt(app); setPreview(null); }}
+                    >
+                      📤 Review & Attach Prescription
+                    </button>
+                  )}
+                  {app.status === "APPROVED" && (
+                    <span className="badge-approved">✅ Approved & Sent</span>
+                  )}
+                </div>
               </div>
-              <div className="d-flex align-items-center gap-2">
-                {app.status === "PENDING" && (
-                  <button className="btn btn-primary btn-sm rounded-pill"
-                    onClick={() => { setSelectedAppt(app); setPreview(null); }}>
-                    📤 Send Prescription
-                  </button>
+            </div>
+          ))}
+
+          {/* ── UPLOAD PRESCRIPTION MODAL / SECTION ── */}
+          {selectedAppt && (
+            <div className="p-4 bg-white rounded-3 border mt-3 shadow-sm" style={{ borderColor: "#0D9488", borderLeft: "5px solid #0D9488" }}>
+              <h5 className="fw-bold mb-2" style={{ fontSize: "16px", color: "#0F766E" }}>
+                Attach Prescription for {selectedAppt.patient?.name}
+              </h5>
+              <p className="text-muted mb-3" style={{ fontSize: "13px" }}>
+                Upload the prescription chart, medical notes, or the QR code generated below.
+              </p>
+
+              <div className="upload-zone mb-3" onClick={() => document.getElementById("rxFileInput").click()}>
+                {preview ? (
+                  <div>
+                    <img src={preview} alt="Prescription Preview" style={{ maxWidth: 280, maxHeight: 200, borderRadius: 8, objectFit: "contain" }} />
+                    <div className="mt-2 text-primary fw-semibold" style={{ fontSize: "13px" }}>Click to replace file</div>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ fontSize: 36 }}>🖼️</div>
+                    <div className="fw-semibold mt-2" style={{ color: "#0F172A", fontSize: "14px" }}>Click to choose prescription file</div>
+                    <div className="text-muted" style={{ fontSize: "12px" }}>PNG, JPG or scanned QR supported</div>
+                  </div>
                 )}
-                {app.status === "APPROVED" && <span className="badge bg-success px-3 py-2 rounded-pill">✅ Approved</span>}
+                <input id="rxFileInput" type="file" accept="image/*" style={{ display: "none" }} onChange={handleImageChange} />
+              </div>
+
+              <div className="d-flex gap-2 flex-wrap">
+                <button
+                  className="btn-primary-medical"
+                  style={{ padding: "8px 20px", fontSize: "13.5px" }}
+                  onClick={handleSendPrescription}
+                  disabled={loading}
+                >
+                  {loading ? "Sending..." : "✅ Confirm & Send to Patient"}
+                </button>
+                <button
+                  className="btn btn-light"
+                  style={{ border: "1px solid #CBD5E1", borderRadius: "8px", padding: "8px 16px", fontSize: "13.5px" }}
+                  onClick={() => { setSelectedAppt(null); setPreview(null); }}
+                >
+                  Cancel
+                </button>
               </div>
             </div>
-          </div>
-        ))}
+          )}
+        </div>
 
-        {/* ── UPLOAD PRESCRIPTION IMAGE ── */}
-        {selectedAppt && (
-          <div className="card p-4 rounded-4 border-0 shadow-lg mb-4" style={{ borderLeft:"5px solid #2ecc71" }}>
-            <h5 className="fw-bold mb-3">📤 Send Prescription to <span style={{ color:"#4B0082" }}>{selectedAppt.patient?.name}</span></h5>
-            <div className="upload-zone mb-3" onClick={() => document.getElementById("rxFileInput").click()}>
-              {preview
-                ? <img src={preview} alt="Preview" style={{ maxWidth:300, borderRadius:10 }} />
-                : <><div style={{ fontSize:40 }}>🖼️</div><p className="mb-0 mt-2 fw-semibold">Click to upload prescription image</p><p className="text-muted" style={{ fontSize:12 }}>PNG, JPG supported</p></>
-              }
-              <input id="rxFileInput" type="file" accept="image/*" style={{ display:"none" }} onChange={handleImageChange} />
-            </div>
-            <div className="d-flex gap-2 flex-wrap">
-              <button className="btn btn-success rounded-pill px-4" onClick={handleSendPrescription} disabled={loading}>
-                {loading ? "⏳ Sending..." : "✅ Send Prescription"}
-              </button>
-              <button className="btn btn-outline-secondary rounded-pill" onClick={() => { setSelectedAppt(null); setPreview(null); }}>Cancel</button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ================================================================ */}
-      {/* ================= 📲 QR PRESCRIPTION GENERATOR ================ */}
-      {/* ================================================================ */}
-      <div className="container mb-5">
-        <div className="qr-wrap">
-
-          {/* Header */}
-          <div className="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+        {/* ── QR PRESCRIPTION GENERATOR ── */}
+        <div className="qr-wrap mb-4">
+          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
             <div>
-              <h4 className="mb-0 fw-bold" style={{ color:"#4B0082" }}>📲 QR Prescription Generator</h4>
-              <p className="text-muted mb-0" style={{ fontSize:13, marginTop:4 }}>
-                Generate → Download QR → Send to patient via WhatsApp/Email
+              <h5 className="fw-bold mb-0" style={{ fontSize: "18px", color: "#0F172A" }}>
+                📲 Digital QR Prescription Generator
+              </h5>
+              <p className="text-muted mb-0" style={{ fontSize: "13px" }}>
+                Generate an encrypted digital prescription containing medication, dosage and schedule
               </p>
             </div>
-            <button className="gen-btn" onClick={() => { setShowQrForm(!showQrForm); setQrValue(""); setQrGenerated(false); }}>
-              {showQrForm ? "✕ Close" : "+ Create Prescription QR"}
+            <button
+              className="btn btn-light btn-sm"
+              style={{ border: "1px solid #CBD5E1", borderRadius: "8px", fontWeight: 600 }}
+              onClick={() => setShowQrForm(!showQrForm)}
+            >
+              {showQrForm ? "▲ Collapse Generator" : "▼ Open Generator Tool"}
             </button>
           </div>
 
-          {/* How it works */}
-          {!showQrForm && !qrGenerated && (
-            <div style={{ background:"white", borderRadius:14, padding:"18px 22px" }}>
-              <p className="fw-bold mb-3" style={{ color:"#4B0082" }}>📋 How it works:</p>
-              {[
-                ["1","Fill the prescription form below"],
-                ["2","Click Generate QR Code"],
-                ["3","Download the QR image to your device"],
-                ["4","Send it to your patient via WhatsApp / Email / SMS"],
-                ["5","Patient uploads the QR image on their Patient Dashboard"],
-                ["6","Full prescription details appear on their screen instantly ✅"],
-              ].map(([n,t]) => (
-                <div className="step-row" key={n}>
-                  <span className="step-badge">{n}</span>
-                  <span>{t}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Form */}
           {showQrForm && (
-            <div style={{ background:"white", borderRadius:16, padding:24, boxShadow:"0 4px 20px rgba(75,0,130,0.08)", marginTop:16, animation:"fadeUp 0.3s ease" }}>
-              <h6 className="fw-bold mb-4" style={{ color:"#4B0082", fontSize:15 }}>🩺 Prescription Details</h6>
-              <div className="row g-3">
+            <div className="mt-3">
+              <div className="row g-3 mb-3">
                 <div className="col-md-6">
-                  <label className="form-label fw-semibold">Patient Name</label>
-                  <input className="form-control rounded-3" placeholder="e.g. Rahul Sharma"
-                    value={rxForm.patientName} onChange={e => setRxForm({...rxForm, patientName:e.target.value})} />
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label fw-semibold">Doctor Name</label>
-                  <input className="form-control rounded-3" value={rxForm.doctorName}
-                    onChange={e => setRxForm({...rxForm, doctorName:e.target.value})} />
+                  <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Patient Name</label>
+                  <input
+                    className="form-control"
+                    placeholder="e.g. Jane Smith"
+                    value={rxForm.patientName}
+                    onChange={e => setRxForm({ ...rxForm, patientName: e.target.value })}
+                  />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label fw-semibold">💊 Medicine Name *</label>
-                  <input className="form-control rounded-3" placeholder="e.g. Amoxicillin 500mg"
-                    value={rxForm.medicine} onChange={e => setRxForm({...rxForm, medicine:e.target.value})} />
+                  <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Medicine Name *</label>
+                  <input
+                    className="form-control"
+                    placeholder="e.g. Amoxicillin 500mg"
+                    value={rxForm.medicine}
+                    onChange={e => setRxForm({ ...rxForm, medicine: e.target.value })}
+                  />
                 </div>
-                <div className="col-md-3">
-                  <label className="form-label fw-semibold">Dosage</label>
-                  <input className="form-control rounded-3" placeholder="e.g. 1 tablet"
-                    value={rxForm.dosage} onChange={e => setRxForm({...rxForm, dosage:e.target.value})} />
-                </div>
-                <div className="col-md-3">
-                  <label className="form-label fw-semibold">Frequency</label>
-                  <select className="form-select rounded-3" value={rxForm.frequency}
-                    onChange={e => setRxForm({...rxForm, frequency:e.target.value})}>
-                    <option value="">Select</option>
-                    <option>Once a day</option>
-                    <option>Twice a day</option>
-                    <option>Three times a day</option>
-                    <option>Before meals</option>
-                    <option>After meals</option>
-                    <option>At bedtime</option>
-                  </select>
+              </div>
+
+              <div className="row g-3 mb-3">
+                <div className="col-md-4">
+                  <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Dosage</label>
+                  <input
+                    className="form-control"
+                    placeholder="e.g. 1 Tablet"
+                    value={rxForm.dosage}
+                    onChange={e => setRxForm({ ...rxForm, dosage: e.target.value })}
+                  />
                 </div>
                 <div className="col-md-4">
-                  <label className="form-label fw-semibold">Duration</label>
-                  <input className="form-control rounded-3" placeholder="e.g. 5 days"
-                    value={rxForm.duration} onChange={e => setRxForm({...rxForm, duration:e.target.value})} />
+                  <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Frequency</label>
+                  <input
+                    className="form-control"
+                    placeholder="e.g. Twice daily (After meals)"
+                    value={rxForm.frequency}
+                    onChange={e => setRxForm({ ...rxForm, frequency: e.target.value })}
+                  />
                 </div>
-                <div className="col-md-8">
-                  <label className="form-label fw-semibold">Special Instructions</label>
-                  <input className="form-control rounded-3" placeholder="e.g. Take after food, avoid alcohol"
-                    value={rxForm.instructions} onChange={e => setRxForm({...rxForm, instructions:e.target.value})} />
-                </div>
-                <div className="col-12 d-flex gap-2 flex-wrap">
-                  <button className="gen-btn" onClick={handleGenerateQR}>🔲 Generate QR Code</button>
-                  <button className="btn btn-outline-secondary rounded-pill" onClick={() => { setRxForm(emptyRx); setQrValue(""); setQrGenerated(false); }}>Reset</button>
+                <div className="col-md-4">
+                  <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Duration</label>
+                  <input
+                    className="form-control"
+                    placeholder="e.g. 5 Days"
+                    value={rxForm.duration}
+                    onChange={e => setRxForm({ ...rxForm, duration: e.target.value })}
+                  />
                 </div>
               </div>
-            </div>
-          )}
 
-          {/* QR Result */}
-          {qrValue && (
-            <div className="qr-result">
-              <h6 style={{ color:"#2ecc71", fontWeight:700, fontSize:16 }}>✅ QR Code Ready!</h6>
-              <p className="text-muted" style={{ fontSize:13 }}>Download this QR and send it to <strong>{rxForm.patientName || "the patient"}</strong></p>
-
-              {/* QR Code */}
-              <div style={{ display:"inline-block", padding:16, background:"white", borderRadius:16, boxShadow:"0 4px 20px rgba(0,0,0,0.12)", marginBottom:16 }}>
-                <QRCodeCanvas ref={qrRef} value={qrValue} size={220} level="H" />
+              <div className="mb-3">
+                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Special Clinical Instructions</label>
+                <input
+                  className="form-control"
+                  placeholder="e.g. Drink plenty of water, avoid dairy for 2 hours"
+                  value={rxForm.instructions}
+                  onChange={e => setRxForm({ ...rxForm, instructions: e.target.value })}
+                />
               </div>
 
-              {/* Prescription Summary */}
-              <div className="rx-table">
-                {[
-                  ["Patient",      rxForm.patientName],
-                  ["Doctor",       `Dr. ${rxForm.doctorName}`],
-                  ["Medicine",     rxForm.medicine],
-                  ["Dosage",       rxForm.dosage],
-                  ["Frequency",    rxForm.frequency],
-                  ["Duration",     rxForm.duration],
-                  ["Instructions", rxForm.instructions],
-                  ["Date",         new Date().toLocaleDateString("en-IN", { day:"2-digit", month:"long", year:"numeric" })],
-                ].map(([l,v]) => v ? (
-                  <div className="rx-row" key={l}>
-                    <span className="rx-lbl">{l}:</span>
-                    <span>{v}</span>
+              <button
+                className="btn-primary-medical"
+                style={{ padding: "9px 24px", fontSize: "14px" }}
+                onClick={handleGenerateQR}
+              >
+                ⚡ Generate Prescription QR
+              </button>
+
+              {/* QR Result */}
+              {qrGenerated && qrValue && (
+                <div className="qr-result">
+                  <h6 className="fw-bold mb-3" style={{ color: "#0F172A" }}>Generated Prescription QR Code</h6>
+                  <div className="p-3 bg-white d-inline-block rounded-3 border mb-3 shadow-sm" style={{ borderColor: "#E2E8F0" }}>
+                    <QRCodeCanvas value={qrValue} size={200} level="H" />
                   </div>
-                ) : null)}
-              </div>
 
-              {/* Action Buttons */}
-              <div className="d-flex gap-2 flex-wrap justify-content-center mt-3">
-                <button className="dl-btn" onClick={handleDownloadQR}>⬇️ Download QR Image</button>
-                <button className="wa-btn" onClick={handleWhatsApp}>📱 Share on WhatsApp</button>
-                <button className="btn btn-outline-secondary rounded-pill" onClick={handleCopy}>
-                  {copied ? "✅ Copied!" : "📋 Copy Text"}
-                </button>
-              </div>
+                  {/* Summary Table */}
+                  <div className="rx-table" style={{ maxWidth: "540px", margin: "0 auto 16px" }}>
+                    {[
+                      ["Patient", rxForm.patientName || "Jane Smith"],
+                      ["Doctor", `Dr. ${rxForm.doctorName}`],
+                      ["Medicine", rxForm.medicine],
+                      ["Dosage", rxForm.dosage],
+                      ["Frequency", rxForm.frequency],
+                      ["Duration", rxForm.duration],
+                      ["Instructions", rxForm.instructions],
+                      ["Issued Date", new Date().toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" })]
+                    ].map(([lbl, val]) => val ? (
+                      <div className="rx-row" key={lbl}>
+                        <span className="rx-lbl">{lbl}:</span>
+                        <span>{val}</span>
+                      </div>
+                    ) : null)}
+                  </div>
 
-              <div style={{ background:"#fff8e1", borderRadius:10, padding:"12px 16px", marginTop:16, fontSize:13, color:"#b8860b" }}>
-                💡 <strong>Tip:</strong> Download the QR image → Send via WhatsApp/Email to {rxForm.patientName || "patient"} → They upload it on their Patient Dashboard to view the prescription.
-              </div>
+                  <div className="d-flex gap-2 justify-content-center flex-wrap">
+                    <button
+                      className="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold"
+                      onClick={handleDownloadQR}
+                    >
+                      ⬇️ Download PNG Image
+                    </button>
+                    <button
+                      className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold"
+                      onClick={handleWhatsApp}
+                    >
+                      📱 Share via WhatsApp
+                    </button>
+                    <button
+                      className="btn btn-sm btn-light rounded-pill px-3"
+                      style={{ border: "1px solid #CBD5E1" }}
+                      onClick={handleCopy}
+                    >
+                      {copied ? "✅ Copied" : "📋 Copy Plaintext"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
+
       </div>
 
       {/* ── FOOTER ── */}
-      <footer className="text-white pt-5 pb-3" style={{ background:"linear-gradient(135deg,#2c0060,#4B0082)" }}>
-        <div className="container">
-          <div className="row g-4">
-            <div className="col-md-4">
-              <h5 className="fw-bold">🏥 MedQRate</h5>
-              <p className="mt-2" style={{ opacity:0.8 }}>Smart Healthcare Appointment & Prescription Management System.</p>
-              <p>📍 Chinchwad, Pune, Maharashtra</p>
-              <p>📧 healthcare@gmail.com</p>
-              <p>📞 +91 9876543210</p>
+      <footer style={{ background: "#0F172A", color: "#94A3B8", padding: "30px 20px 20px", marginTop: "auto" }}>
+        <div className="container" style={{ maxWidth: "1080px" }}>
+          <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <div className="fw-bold text-white" style={{ fontSize: "15px" }}>🩺 MedQRate Clinical Practitioner Desk</div>
+              <div style={{ fontSize: "12px", color: "#64748B" }}>Authorized Physician Access Only</div>
             </div>
-            <div className="col-md-4">
-              <h5 className="fw-bold">⏳ Appointment Timing</h5>
-              <p className="mt-2">Mon – Fri: 9AM – 6PM</p>
-              <p>Saturday: 9AM – 2PM</p>
-              <p>Sunday: Closed</p>
-            </div>
-            <div className="col-md-4">
-              <h5 className="fw-bold">📊 Social</h5>
-              <p className="mt-2">Instagram</p><p>Facebook</p><p>Youtube</p><p>Linkedin</p>
+            <div style={{ fontSize: "12px", color: "#64748B" }}>
+              Medical Helpline: +91 9876543210
             </div>
           </div>
-          <hr style={{ opacity:0.3 }} />
-          <p className="text-center mb-0" style={{ opacity:0.7 }}>© 2026 MedQRate. All Rights Reserved.</p>
+          <hr style={{ borderColor: "#1E293B", margin: "16px 0 12px" }} />
+          <p className="text-center mb-0" style={{ fontSize: "12px", color: "#475569" }}>
+            © 2026 MedQRate Healthcare Technologies. All Rights Reserved.
+          </p>
         </div>
       </footer>
-    </>
+    </div>
   );
 }
 
