@@ -18,6 +18,10 @@ function DoctorHome() {
   const [loading,      setLoading]      = useState(false);
   const [copied,       setCopied]       = useState(false);
 
+  // Notifications State
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifDrawer, setShowNotifDrawer] = useState(false);
+
   // QR prescription state
   const emptyRx = { patientName:"", medicine:"", dosage:"", frequency:"", duration:"", instructions:"", doctorName: user?.name||"" };
   const [rxForm,      setRxForm]      = useState(emptyRx);
@@ -34,12 +38,48 @@ function DoctorHome() {
     try { const r = await axios.get(`${BASE_URL}/auth/patients`); setPatients(r.data); }
     catch(e) { console.log(e); }
   };
+  const loadNotifications = async () => {
+    try {
+      const res = await axios.get(`${BASE_URL}/notifications/user/${doctorId}`);
+      setNotifications(res.data);
+    } catch(err) {
+      console.log("Error loading notifications:", err);
+    }
+  };
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (doctorId) { loadAppointments(); loadPatients(); } }, [doctorId]);
+  useEffect(() => { 
+    if (doctorId) { 
+      loadAppointments(); 
+      loadPatients(); 
+      loadNotifications();
+    } 
+  }, [doctorId]);
 
   const handleShowRegisters = async () => {
     try { const r = await axios.get(`${BASE_URL}/auth/all`); setAllUsers(r.data); setShowRegisters(!showRegisters); }
     catch(e) { console.log(e); }
+  };
+
+  // ── Mark Notification Read ──
+  const handleMarkRead = async (id) => {
+    try {
+      await axios.put(`${BASE_URL}/notifications/read/${id}`);
+      await loadNotifications();
+    } catch(err) {
+      console.log(err);
+    }
+  };
+
+  // ── Mark All Read ──
+  const handleMarkAllRead = async () => {
+    try {
+      const unreads = notifications.filter(n => !n.read);
+      await Promise.all(unreads.map(n => axios.put(`${BASE_URL}/notifications/read/${n.id}`)));
+      await loadNotifications();
+    } catch(err) {
+      console.log(err);
+    }
   };
 
   // ── Upload prescription image ──
@@ -106,6 +146,8 @@ function DoctorHome() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const unreadNotifications = notifications.filter(n => !n.read);
 
   return (
     <div style={{ backgroundColor: "#F8FAFC", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -281,6 +323,41 @@ function DoctorHome() {
           font-weight: 600;
         }
       `}</style>
+
+      {/* ── NOTIFICATIONS DRAWER ── */}
+      {showNotifDrawer && (
+        <div className="notif-drawer-overlay" onClick={()=>setShowNotifDrawer(false)}>
+          <div className="notif-drawer" onClick={e=>e.stopPropagation()}>
+            <div className="d-flex justify-content-between align-items-center mb-4">
+              <h5 className="fw-bold mb-0 text-white">🔔 Doctor Alerts</h5>
+              <button className="btn btn-sm btn-outline-light rounded-circle" onClick={()=>setShowNotifDrawer(false)}>✕</button>
+            </div>
+            
+            {notifications.length > 0 && (
+              <button className="btn btn-sm btn-outline-info rounded-pill mb-3 align-self-start" onClick={handleMarkAllRead}>
+                ✓ Mark all as read
+              </button>
+            )}
+
+            <div style={{ flex:1, overflowY:"auto" }}>
+              {notifications.length === 0 ? (
+                <div className="text-center py-5 text-muted">
+                  <div style={{ fontSize:40 }}>📭</div>
+                  <p className="mt-2 text-white-50">No appointment alerts yet.</p>
+                </div>
+              ) : (
+                notifications.map(n => (
+                  <div key={n.id} className={`notif-item ${!n.read ? 'unread' : ''}`} onClick={() => handleMarkRead(n.id)}>
+                    <div className="fw-bold" style={{ fontSize:13, color: !n.read ? '#d8b4fe' : '#ccc' }}>{n.title}</div>
+                    <div style={{ fontSize:12, marginTop:4, opacity:0.8 }}>{n.message}</div>
+                    <div style={{ fontSize:10, marginTop:6, opacity:0.5 }}>{new Date(n.createdAt).toLocaleString()}</div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── NAVBAR ── */}
       <nav className="navbar px-4 px-md-5 py-3 doc-navbar">

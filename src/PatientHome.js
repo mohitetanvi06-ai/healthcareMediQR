@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import "bootstrap/dist/css/bootstrap.min.css";
+import QRScanner from "./QRScanner";
 
 const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8080/api";
 
@@ -35,22 +36,69 @@ function PatientHome() {
   // View prescription QR modal
   const [viewingRx, setViewingRx] = useState(null);
 
+  // Vitals State
+  const [vitals, setVitals] = useState([]);
+  const [vitalsForm, setVitalsForm] = useState({ systolic: "", diastolic: "", heartRate: "", bloodSugar: "", weight: "" });
+
+  // Notifications State
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifDrawer, setShowNotifDrawer] = useState(false);
+
+  // Scanner State
+  const [showScanner, setShowScanner] = useState(false);
+  const [scannedRx, setScannedRx] = useState(null);
+
   // Reminder state
   const emptyForm = { medicineName:"", times:[""], frequency:"daily", notes:"", sound:true };
-  const [reminders,        setReminders]        = useState(() => {
-    try { return JSON.parse(localStorage.getItem("medReminders_"+patientId)) || []; }
-    catch { return []; }
-  });
+  const [reminders,        setReminders]        = useState([]);
   const [reminderForm,     setReminderForm]     = useState(emptyForm);
   const [notifPerm,        setNotifPerm]        = useState(typeof Notification!=="undefined" ? Notification.permission : "denied");
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [toast,            setToast]            = useState(null);
   const intervalRef = useRef(null);
 
-  // ── Persist reminders ──
-  useEffect(() => {
-    localStorage.setItem("medReminders_"+patientId, JSON.stringify(reminders));
-  }, [reminders, patientId]);
+  // ── Load Reminders from Backend ──
+  const loadReminders = async () => {
+    if (!patientId) return;
+    try {
+      const res = await axios.get(`${BASE_URL}/reminders/patient/${patientId}`);
+      const mapped = res.data.map(r => ({
+        id: r.id,
+        medicineName: r.name,
+        times: r.timing || [],
+        frequency: r.frequency ? r.frequency.toLowerCase() : "daily",
+        notes: r.dosage || "",
+        sound: true,
+        active: true,
+        logs: r.logs || {}
+      }));
+      setReminders(mapped);
+    } catch(err) {
+      console.log("Error loading reminders:", err);
+    }
+  };
+
+  // ── Load Vitals from Backend ──
+  const loadVitals = async () => {
+    if (!patientId) return;
+    try {
+      const res = await axios.get(`${BASE_URL}/vitals/patient/${patientId}`);
+      setVitals(res.data);
+    } catch(err) {
+      console.log("Error loading vitals:", err);
+    }
+  };
+
+  // ── Load Notifications ──
+  const loadNotifications = async () => {
+    if (!patientId) return;
+    try {
+      const res = await axios.get(`${BASE_URL}/notifications/user/${patientId}`);
+      setNotifications(res.data);
+    } catch(err) {
+      console.log("Error loading notifications:", err);
+    }
+  };
 
   // ── Load doctors ──
   useEffect(() => {
@@ -62,8 +110,16 @@ function PatientHome() {
     try { const r = await axios.get(`${BASE_URL}/appointments/patient/${patientId}`); setAppointments(r.data); }
     catch(e) { console.log(e); }
   };
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (patientId) loadAppointments(); }, [patientId]);
+  useEffect(() => { 
+    if (patientId) {
+      loadAppointments(); 
+      loadReminders();
+      loadVitals();
+      loadNotifications();
+    }
+  }, [patientId]);
 
   // ── Book appointment ──
   const handleBook = async () => {
@@ -75,6 +131,54 @@ function PatientHome() {
       setSelectedDoc(null); setEnquiry(""); loadAppointments();
     } catch { alert("Error booking appointment. Please try again."); }
     finally { setLoading(false); }
+  };
+
+  // ── Log Vitals ──
+  const handleLogVitals = async (e) => {
+    e.preventDefault();
+    if (!vitalsForm.systolic || !vitalsForm.diastolic || !vitalsForm.heartRate || !vitalsForm.bloodSugar || !vitalsForm.weight) {
+      alert("Please fill in all vitals fields.");
+      return;
+    }
+    try {
+      setLoading(true);
+      await axios.post(`${BASE_URL}/vitals/patient/${patientId}`, {
+        systolic: Number(vitalsForm.systolic),
+        diastolic: Number(vitalsForm.diastolic),
+        heartRate: Number(vitalsForm.heartRate),
+        bloodSugar: Number(vitalsForm.bloodSugar),
+        weight: Number(vitalsForm.weight)
+      });
+      alert("✅ Health vitals logged successfully!");
+      setVitalsForm({ systolic: "", diastolic: "", heartRate: "", bloodSugar: "", weight: "" });
+      await loadVitals();
+      await loadNotifications();
+    } catch(err) {
+      alert("Error logging vitals. Please check connection.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Mark Notification Read ──
+  const handleMarkRead = async (id) => {
+    try {
+      await axios.put(`${BASE_URL}/notifications/read/${id}`);
+      await loadNotifications();
+    } catch(err) {
+      console.log(err);
+    }
+  };
+
+  // ── Mark All Read ──
+  const handleMarkAllRead = async () => {
+    try {
+      const unreads = notifications.filter(n => !n.read);
+      await Promise.all(unreads.map(n => axios.put(`${BASE_URL}/notifications/read/${n.id}`)));
+      await loadNotifications();
+    } catch(err) {
+      console.log(err);
+    }
   };
 
   // ── Reminder checker ──
@@ -96,25 +200,68 @@ function PatientHome() {
           setToast({ medicineName:r.medicineName, notes:r.notes });
           setTimeout(() => setToast(null), 10000);
           if (Notification.permission==="granted") new Notification("💊 Medicine Reminder — MedQRate", { body:`Time to take: ${r.medicineName}` });
-          if (r.frequency==="once") setReminders(prev => prev.map(x => x.id===r.id ? {...x,active:false}:x));
+          if (r.frequency==="once") {
+            // Locally disable it
+            setReminders(prev => prev.map(x => x.id===r.id ? {...x,active:false}:x));
+          }
         });
       });
     };
     intervalRef.current = setInterval(check, 30000);
     check();
     return () => clearInterval(intervalRef.current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reminders]);
 
   const addTimeSlot    = ()    => reminderForm.times.length<6 && setReminderForm(f => ({...f, times:[...f.times,""]}));
   const removeTimeSlot = (i)   => reminderForm.times.length>1 && setReminderForm(f => ({...f, times:f.times.filter((_,j)=>j!==i)}));
   const changeTime     = (i,v) => { const t=[...reminderForm.times]; t[i]=v; setReminderForm(f=>({...f,times:t})); };
 
-  const handleAddReminder = () => {
+  // ── Add Reminder (POSTs to Backend) ──
+  const handleAddReminder = async () => {
     const vt = reminderForm.times.filter(t=>t.trim());
     if (!reminderForm.medicineName.trim()||!vt.length) { alert("Enter medicine name and at least one time."); return; }
-    setReminders(prev => [...prev, { id:Date.now(), ...reminderForm, times:vt, active:true }]);
-    setReminderForm(emptyForm); setShowReminderForm(false);
+    try {
+      await axios.post(`${BASE_URL}/reminders/patient/${patientId}`, {
+        name: reminderForm.medicineName,
+        dosage: reminderForm.notes || "1 dose",
+        timing: vt,
+        frequency: reminderForm.frequency,
+        startDate: new Date().toISOString().split("T")[0]
+      });
+      await loadReminders();
+      setReminderForm(emptyForm);
+      setShowReminderForm(false);
+      alert("✅ Medicine Reminder Scheduled!");
+    } catch(err) {
+      alert("Error scheduling reminder in backend database.");
+    }
+  };
+
+  // ── Delete Reminder ──
+  const handleDeleteReminder = async (remId) => {
+    if (!window.confirm("Are you sure you want to delete this reminder?")) return;
+    try {
+      await axios.delete(`${BASE_URL}/reminders/${remId}`);
+      await loadReminders();
+    } catch(err) {
+      alert("Error deleting reminder.");
+    }
+  };
+
+  // ── Toggle Reminder Status (Taken log for today) ──
+  const handleToggleReminderTaken = async (r) => {
+    const today = new Date().toISOString().split("T")[0];
+    const isTaken = r.logs?.[today] === "TAKEN";
+    const nextStatus = isTaken ? "PENDING" : "TAKEN";
+    try {
+      await axios.put(`${BASE_URL}/reminders/toggle/${r.id}`, {
+        date: today,
+        status: nextStatus
+      });
+      await loadReminders();
+    } catch(err) {
+      console.log(err);
+    }
   };
 
   // ── Set reminder from prescription ──
@@ -130,6 +277,21 @@ function PatientHome() {
 
   // Approved prescriptions with QR image
   const approvedWithRx = appointments.filter(a => a.status==="APPROVED" && a.imagePath);
+  const unreadNotifications = notifications.filter(n => !n.read);
+
+  // Helper alerts for vitals status
+  const getVitalAlertClass = (sys, dia, hr, sugar) => {
+    let warn = [];
+    if (sys > 140 || dia > 90) warn.push("High BP");
+    if (sys < 90 || dia < 60) warn.push("Low BP");
+    if (hr > 100) warn.push("High HR");
+    if (hr < 55) warn.push("Low HR");
+    if (sugar > 180) warn.push("High Sugar");
+    if (sugar < 70) warn.push("Low Sugar");
+
+    if (warn.length > 0) return { text: warn.join(", "), badge: "bg-danger text-white" };
+    return { text: "Normal", badge: "bg-success text-white" };
+  };
 
   return (
     <div style={{ backgroundColor: "#F8FAFC", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -424,7 +586,7 @@ function PatientHome() {
         }
       `}</style>
 
-      {/* ── TOAST ── */}
+      {/* ── TOAST ALERT ── */}
       {toast && (
         <div className="toast-pop">
           <div className="d-flex gap-3 align-items-start">
@@ -815,7 +977,6 @@ function PatientHome() {
                 </button>
               </div>
             </div>
-          )}
 
           {/* Reminder List */}
           <div className="mt-2">

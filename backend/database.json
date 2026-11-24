@@ -219,7 +219,28 @@
       "createdAt": "2026-06-28T08:56:37.412Z"
     }
   ],
-  "vitals": [],
+  "vitals": [
+    {
+      "patientId": "usr_1784383370133_pk8x53755",
+      "systolic": 120,
+      "diastolic": 80,
+      "heartRate": 72,
+      "bloodSugar": 100,
+      "weight": 70,
+      "id": "vit_1784383448417_h84xv5k62",
+      "timestamp": "2026-07-18T14:04:08.417Z"
+    },
+    {
+      "patientId": "usr_1784383370133_pk8x53755",
+      "systolic": 140,
+      "diastolic": 100,
+      "heartRate": 90,
+      "bloodSugar": 130,
+      "weight": 100,
+      "id": "vit_1784383474166_su6o5aj5q",
+      "timestamp": "2026-07-18T14:04:34.166Z"
+    }
+  ],
   "notifications": [
     {
       "userId": "usr_1782636427767_mkhychvsp",
