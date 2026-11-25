@@ -114,23 +114,29 @@ if (process.env.NODE_ENV !== "test" && mysql) {
           )
         `);
 
-        // Check if users exist in MySQL, if empty seed default users
-        const [rows] = await conn.execute("SELECT COUNT(*) as cnt FROM users");
-        if (rows[0].cnt === 0) {
-          const doc = defaultData.users[0];
-          const pat = defaultData.users[1];
-          await conn.execute(`
-            INSERT INTO users (id, name, email, password, role, speciality, qualification, address, phone)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `, [doc.id, doc.name, doc.email, doc.password, doc.role, doc.speciality, doc.qualification, doc.address, doc.phone]);
-
-          await conn.execute(`
-            INSERT INTO users (id, name, email, password, role, dob, age, address, phone)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `, [pat.id, pat.name, pat.email, pat.password, pat.role, pat.dob, pat.age, pat.address, pat.phone]);
-
-          console.log("🌱 [MySQL] Seeded default doctor and patient accounts.");
+        // Ensure all registered users from database.json are synced into MySQL
+        const localUsers = readDB().users || [];
+        for (const u of localUsers) {
+          try {
+            await conn.execute(`
+              INSERT IGNORE INTO users (id, name, email, password, role, dob, age, speciality, qualification, address, phone)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+              u.id,
+              u.name,
+              (u.email || "").trim().toLowerCase(),
+              u.password,
+              u.role,
+              u.dob || null,
+              u.age || null,
+              u.speciality || null,
+              u.qualification || null,
+              u.address || null,
+              u.phone || null
+            ]);
+          } catch (e) {}
         }
+        console.log(`🐬 [MySQL] Synced registered accounts into medqrate_db.`);
         conn.release();
       })
       .catch((err) => {
