@@ -5,17 +5,31 @@ const db = require("./db");
 // Register
 router.post("/register", async (req, res) => {
   try {
-    const { email } = req.body;
-    if (!email) {
+    const rawEmail = req.body.email;
+    const rawPassword = req.body.password;
+    if (!rawEmail || !rawEmail.trim()) {
       return res.status(400).json({ message: "Email is required" });
     }
+    if (!rawPassword || !rawPassword.trim()) {
+      return res.status(400).json({ message: "Password is required" });
+    }
+
+    const email = rawEmail.trim().toLowerCase();
+    const password = rawPassword.trim();
 
     const existing = await db.findUserByEmail(email);
     if (existing) {
-      return res.status(400).json({ message: "User already exists" });
+      return res.status(400).json({ message: "An account already exists with this email" });
     }
 
-    const newUser = await db.saveUser(req.body);
+    const userData = {
+      ...req.body,
+      name: req.body.name ? req.body.name.trim() : "",
+      email: email,
+      password: password
+    };
+
+    const newUser = await db.saveUser(userData);
     const userResponse = { ...newUser };
     delete userResponse.password; // Don't return password
     res.status(201).json(userResponse);
@@ -28,19 +42,23 @@ router.post("/register", async (req, res) => {
 // Login
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
+    const rawEmail = req.body.email;
+    const rawPassword = req.body.password;
+    if (!rawEmail || !rawEmail.trim() || !rawPassword || !rawPassword.trim()) {
       return res.status(400).json({ message: "Email and password are required" });
     }
 
+    const email = rawEmail.trim().toLowerCase();
+    const password = rawPassword.trim();
+
     const user = await db.findUserByEmail(email);
     if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(400).json({ message: "No account found with this email. Please register first." });
     }
 
     const hashed = db.hashPassword(password);
     if (user.password !== hashed) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(400).json({ message: "Incorrect password. Please verify your password." });
     }
 
     const userResponse = { ...user };

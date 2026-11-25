@@ -18,8 +18,10 @@ function Login() {
     e.preventDefault();
     setError("");
     setLoading(true);
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
     try {
-      const res = await axios.post(`${API}/auth/login`, { email, password });
+      const res = await axios.post(`${API}/auth/login`, { email: cleanEmail, password: cleanPassword });
       localStorage.setItem("user", JSON.stringify(res.data));
       setToast({ message: `Welcome back, ${res.data.name}! Signing in...`, type: "success" });
       setTimeout(() => {
@@ -30,7 +32,7 @@ function Login() {
         }
       }, 900);
     } catch (err) {
-      const msg = "Invalid email or password. Please verify your credentials.";
+      const msg = err.response?.data?.message || (err.message === "Network Error" ? "Backend server unreachable. Please verify server connection." : "Invalid email or password. Please verify your credentials.");
       setError(msg);
       setToast({ message: msg, type: "error" });
     } finally {

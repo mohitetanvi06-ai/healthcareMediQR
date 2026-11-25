@@ -74,16 +74,22 @@ function Register() {
     e.preventDefault();
     setError("");
     setLoading(true);
+    const cleanData = {
+      ...formData,
+      email: (formData.email || "").trim().toLowerCase(),
+      password: (formData.password || "").trim(),
+      name: (formData.name || "").trim()
+    };
     try {
-      await axios.post(`${API}/auth/register`, formData);
+      await axios.post(`${API}/auth/register`, cleanData);
       setToast({ message: "Registration successful! Redirecting to login...", type: "success" });
       setTimeout(() => {
         navigate("/login");
       }, 1500);
     } catch (err) {
-      const msg = err.response?.data?.message || err.response?.data || err.message || "Registration failed. Please try again.";
-      setError(typeof msg === "string" ? msg : "Registration failed. Email may already be registered.");
-      setToast({ message: "Registration failed. Email may already be in use.", type: "error" });
+      const msg = err.response?.data?.message || (err.message === "Network Error" ? "Backend server unreachable. Please verify server connection." : "Registration failed. Email may already be registered.");
+      setError(msg);
+      setToast({ message: msg, type: "error" });
     } finally {
       setLoading(false);
     }

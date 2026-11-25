@@ -156,6 +156,7 @@ module.exports = {
   },
   saveUser: async (user) => {
     user.id = user.id || "usr_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+    user.email = (user.email || "").trim().toLowerCase();
     user.password = hashPassword(user.password);
 
     if (useMySQL && pool) {
@@ -191,15 +192,16 @@ module.exports = {
   },
   findUserByEmail: async (email) => {
     if (!email) return null;
+    const clean = email.trim().toLowerCase();
     if (useMySQL && pool) {
       try {
-        const [rows] = await pool.execute("SELECT * FROM users WHERE LOWER(email) = LOWER(?)", [email]);
+        const [rows] = await pool.execute("SELECT * FROM users WHERE LOWER(TRIM(email)) = ?", [clean]);
         if (rows && rows.length > 0) {
           return rows[0];
         }
       } catch (e) {}
     }
-    return readDB().users.find(u => u.email.toLowerCase() === email.toLowerCase()) || null;
+    return readDB().users.find(u => u.email && u.email.trim().toLowerCase() === clean) || null;
   },
   findUserById: (id) => {
     return readDB().users.find(u => u.id === id);
