@@ -3,6 +3,8 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import Toast from "./Toast";
+import { QRCodeCanvas } from "qrcode.react";
+import QRScanner from "./QRScanner";
 
 const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8080/api";
 
@@ -38,6 +40,8 @@ function PatientHome() {
 
   // View prescription QR modal
   const [viewingRx, setViewingRx] = useState(null);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scannedResult, setScannedResult] = useState(null);
 
   // Reminder state
   const emptyForm = { medicineName:"", times:[""], frequency:"daily", notes:"", sound:true };
@@ -150,6 +154,48 @@ function PatientHome() {
     setReminderForm(f => ({ ...f, medicineName: `Dr. ${app.doctor?.name}'s prescription`, notes: app.enquiry || "" }));
     setShowReminderForm(true);
     document.getElementById("reminder-anchor")?.scrollIntoView({ behavior:"smooth" });
+  };
+
+  // ── Save / Download QR Code ──
+  const handleSaveQR = (rx) => {
+    if (!rx || !rx.imagePath) {
+      setToast({ message: "No QR prescription image found to save.", type: "warning" });
+      return;
+    }
+    try {
+      const link = document.createElement("a");
+      link.href = rx.imagePath;
+      const docClean = rx.doctor?.name ? `_Dr_${rx.doctor.name.replace(/[^a-zA-Z0-9]/g, "_")}` : "";
+      link.download = `MedQRate_Prescription_QR${docClean}_${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setToast({ message: "Prescription QR downloaded and saved successfully! 💾", type: "success" });
+    } catch (err) {
+      console.error("Save QR failed:", err);
+      window.open(rx.imagePath, "_blank");
+      setToast({ message: "Opened QR image in a new tab. Right-click to save.", type: "info" });
+    }
+  };
+
+  const handleSaveScannedQR = () => {
+    const canvas = document.querySelector("#scanned-qr-canvas canvas") || document.getElementById("scanned-qr-canvas");
+    if (!canvas) {
+      setToast({ message: "Unable to find QR canvas to save.", type: "warning" });
+      return;
+    }
+    try {
+      const link = document.createElement("a");
+      link.href = canvas.toDataURL ? canvas.toDataURL("image/png") : canvas.src;
+      link.download = `MedQRate_Scanned_Prescription_QR_${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setToast({ message: "Scanned QR code saved successfully! 💾", type: "success" });
+    } catch (err) {
+      console.error("Failed to save scanned QR:", err);
+      setToast({ message: "Error downloading QR image.", type: "error" });
+    }
   };
 
   const filteredDocs = doctors.filter(d =>
@@ -546,6 +592,25 @@ function PatientHome() {
 
             <div className="d-flex gap-2 justify-content-center flex-wrap">
               <button
+                className="btn btn-success"
+                style={{
+                  background: "linear-gradient(135deg, #059669 0%, #10B981 100%)",
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "8px 18px",
+                  fontSize: "13.5px",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  color: "white",
+                  boxShadow: "0 2px 6px rgba(16, 185, 129, 0.3)"
+                }}
+                onClick={() => handleSaveQR(viewingRx)}
+              >
+                💾 Save / Download QR
+              </button>
+              <button
                 className="btn btn-primary-medical"
                 style={{ padding: "8px 18px", fontSize: "13.5px" }}
                 onClick={() => handleSetReminderFromAppt(viewingRx)}
@@ -562,6 +627,78 @@ function PatientHome() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── SCANNED PRESCRIPTION RESULT MODAL ── */}
+      {scannedResult && (
+        <div className="rx-modal-overlay" onClick={() => setScannedResult(null)}>
+          <div className="rx-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+            <div style={{ fontSize: 32, marginBottom: 4 }}>📷</div>
+            <h5 className="fw-bold mb-1" style={{ color: "#0F172A" }}>Scanned Prescription QR</h5>
+            <p className="text-muted mb-3" style={{ fontSize: 13 }}>Decoded Prescription Information</p>
+
+            <div style={{ background: "#F8FAFC", borderRadius: 12, padding: 14, marginBottom: 14, border: "1px solid #E2E8F0" }}>
+              <QRCodeCanvas id="scanned-qr-canvas" value={scannedResult} size={180} level="H" />
+            </div>
+
+            <div style={{ background: "#FFFFFF", borderRadius: 8, padding: "12px", fontSize: 13, color: "#334155", marginBottom: 16, textAlign: "left", border: "1px solid #CBD5E1", whiteSpace: "pre-wrap", maxHeight: 180, overflowY: "auto" }}>
+              {scannedResult}
+            </div>
+
+            <div className="d-flex gap-2 justify-content-center flex-wrap">
+              <button
+                className="btn btn-success"
+                style={{
+                  background: "linear-gradient(135deg, #059669 0%, #10B981 100%)",
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "8px 18px",
+                  fontSize: "13.5px",
+                  fontWeight: 600,
+                  color: "white",
+                  boxShadow: "0 2px 6px rgba(16, 185, 129, 0.3)"
+                }}
+                onClick={handleSaveScannedQR}
+              >
+                💾 Save QR Code
+              </button>
+              <button
+                className="btn btn-primary-medical"
+                style={{ padding: "8px 18px", fontSize: "13.5px" }}
+                onClick={() => {
+                  const lines = scannedResult.split("\n");
+                  const medLine = lines.find(l => l.toLowerCase().includes("medicine:"));
+                  const medName = medLine ? medLine.replace(/medicine:/i, "").trim() : "Scanned Prescription";
+                  setReminderForm(f => ({ ...f, medicineName: medName, notes: scannedResult.slice(0, 80) }));
+                  setShowReminderForm(true);
+                  setScannedResult(null);
+                  document.getElementById("reminder-anchor")?.scrollIntoView({ behavior: "smooth" });
+                }}
+              >
+                ⏰ Set Reminder
+              </button>
+              <button
+                className="btn btn-light"
+                style={{ border: "1px solid #CBD5E1", borderRadius: "8px", padding: "8px 16px", fontSize: "13.5px", fontWeight: 600 }}
+                onClick={() => setScannedResult(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CAMERA / FILE QR SCANNER ── */}
+      {showScanner && (
+        <QRScanner
+          onScanSuccess={(text) => {
+            setShowScanner(false);
+            setScannedResult(text);
+            setToast({ message: "Prescription QR scanned successfully! 🎯", type: "success" });
+          }}
+          onClose={() => setShowScanner(false)}
+        />
       )}
 
       {/* ── NAVBAR (Point 3 Back Arrow) ── */}
@@ -769,12 +906,21 @@ function PatientHome() {
                       <span className="badge-approved">✅ Approved</span>
                     )}
                     {app.status === "APPROVED" && app.imagePath && (
-                      <button
-                        className="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold"
-                        onClick={() => setViewingRx(app)}
-                      >
-                        📲 View QR Prescription
-                      </button>
+                      <>
+                        <button
+                          className="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold"
+                          onClick={() => setViewingRx(app)}
+                        >
+                          📲 View QR Prescription
+                        </button>
+                        <button
+                          className="btn btn-sm btn-success rounded-pill px-3 fw-semibold"
+                          style={{ background: "#10B981", borderColor: "#10B981" }}
+                          onClick={() => handleSaveQR(app)}
+                        >
+                          💾 Save QR
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -794,7 +940,16 @@ function PatientHome() {
                 Digital prescriptions issued by your attending physicians
               </p>
             </div>
-            <span className="badge-approved">{approvedWithRx.length} Available</span>
+            <div className="d-flex align-items-center gap-2">
+              <button
+                className="btn btn-sm rounded-pill px-3 fw-semibold"
+                style={{ border: "1.5px solid #0D9488", color: "#0D9488", background: "#F0FDFA" }}
+                onClick={() => setShowScanner(true)}
+              >
+                📷 Scan / Read QR
+              </button>
+              <span className="badge-approved">{approvedWithRx.length} Available</span>
+            </div>
           </div>
 
           <div className="mt-3">
@@ -830,6 +985,13 @@ function PatientHome() {
                         onClick={() => setViewingRx(app)}
                       >
                         📲 View QR
+                      </button>
+                      <button
+                        className="btn btn-sm btn-success rounded-pill px-3 fw-semibold"
+                        style={{ background: "#10B981", borderColor: "#10B981" }}
+                        onClick={() => handleSaveQR(app)}
+                      >
+                        💾 Save QR
                       </button>
                       <button
                         className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold"
