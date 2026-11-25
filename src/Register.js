@@ -2,8 +2,46 @@ import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
+import Toast from "./Toast";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:8080/api";
+
+const SPECIALITIES = [
+  "General Physician / Internal Medicine",
+  "Cardiologist (Heart Specialist)",
+  "Dermatologist (Skin & Hair)",
+  "Pediatrician (Child Specialist)",
+  "Orthopedic Surgeon (Bone & Joint)",
+  "Gynecologist & Obstetrician (Women's Health)",
+  "Neurologist (Brain & Nerve)",
+  "ENT Specialist (Ear, Nose, Throat)",
+  "Psychiatrist (Mental Health)",
+  "Ophthalmologist (Eye Specialist)",
+  "Dentist (Dental Surgeon)",
+  "Pulmonologist (Lungs & Chest)",
+  "Gastroenterologist (Digestive System)",
+  "Oncologist (Cancer Specialist)",
+  "Endocrinologist (Diabetes & Thyroid)",
+  "Other Specialist"
+];
+
+const QUALIFICATIONS = [
+  "MBBS",
+  "MBBS, MD (General Medicine)",
+  "MBBS, MS (General Surgery)",
+  "MBBS, MD (Cardiology)",
+  "MBBS, MD (Pediatrics)",
+  "MBBS, MD (Dermatology)",
+  "MBBS, DNB",
+  "MD, DM (Cardiology)",
+  "MD, DM (Neurology)",
+  "MS, MCh (Surgeon)",
+  "BDS (Dental)",
+  "MDS (Master of Dental Surgery)",
+  "BAMS (Ayurvedic Medicine)",
+  "BHMS (Homeopathic Medicine)",
+  "Other Qualification"
+];
 
 function Register() {
   const navigate = useNavigate();
@@ -13,15 +51,21 @@ function Register() {
   const [role, setRole] = useState(initialRole);
   const [formData, setFormData] = useState({
     name: "", email: "", password: "",
-    dob: "", age: "", speciality: "",
-    qualification: "", address: "", phone: "", role: initialRole
+    dob: "", age: "", speciality: SPECIALITIES[0],
+    qualification: QUALIFICATIONS[0], address: "", phone: "", role: initialRole
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [toast, setToast] = useState(null);
 
   const handleRoleChange = (newRole) => {
     setRole(newRole);
-    setFormData((prev) => ({ ...prev, role: newRole }));
+    setFormData((prev) => ({
+      ...prev,
+      role: newRole,
+      speciality: newRole === "DOCTOR" ? (prev.speciality || SPECIALITIES[0]) : "",
+      qualification: newRole === "DOCTOR" ? (prev.qualification || QUALIFICATIONS[0]) : ""
+    }));
   };
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -32,11 +76,14 @@ function Register() {
     setLoading(true);
     try {
       await axios.post(`${API}/auth/register`, formData);
-      alert("Registration successful! Please sign in with your credentials.");
-      navigate("/login");
+      setToast({ message: "Registration successful! Redirecting to login...", type: "success" });
+      setTimeout(() => {
+        navigate("/login");
+      }, 1500);
     } catch (err) {
       const msg = err.response?.data?.message || err.response?.data || err.message || "Registration failed. Please try again.";
       setError(typeof msg === "string" ? msg : "Registration failed. Email may already be registered.");
+      setToast({ message: "Registration failed. Email may already be in use.", type: "error" });
     } finally {
       setLoading(false);
     }
@@ -44,6 +91,14 @@ function Register() {
 
   return (
     <div style={{ backgroundColor: "#F8FAFC", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       <style>{`
         .auth-navbar {
           background: #FFFFFF;
@@ -78,23 +133,24 @@ function Register() {
           font-size: 20px;
           letter-spacing: -0.03em;
         }
-        .auth-logo span {
-          color: #0D9488;
-        }
-        .btn-login-top {
-          background: #F1F5F9;
-          color: #334155;
+        .btn-back-nav {
+          background: #F8FAFC;
+          color: #475569;
           border: 1px solid #CBD5E1;
-          border-radius: 10px;
-          padding: 8px 18px;
+          border-radius: 8px;
+          padding: 7px 14px;
           font-weight: 600;
           font-size: 13.5px;
           cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
           transition: all 0.2s ease;
         }
-        .btn-login-top:hover {
-          background: #E2E8F0;
+        .btn-back-nav:hover {
+          background: #F1F5F9;
           color: #0F172A;
+          border-color: #94A3B8;
         }
 
         .auth-wrapper {
@@ -119,19 +175,6 @@ function Register() {
           from { opacity: 0; transform: translateY(14px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        .auth-title {
-          font-size: 24px;
-          font-weight: 800;
-          color: #0F172A;
-          margin-bottom: 6px;
-        }
-        .auth-sub {
-          color: #64748B;
-          font-size: 14px;
-          margin-bottom: 20px;
-        }
-
-        /* Role Switcher */
         .role-switch-container {
           display: flex;
           background: #F1F5F9;
@@ -158,7 +201,6 @@ function Register() {
           box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
           font-weight: 700;
         }
-
         .form-label {
           font-size: 13px;
           font-weight: 600;
@@ -200,40 +242,34 @@ function Register() {
           transform: translateY(-1px);
           box-shadow: 0 6px 16px rgba(13, 148, 136, 0.35);
         }
-        .btn-auth-submit:disabled {
-          opacity: 0.65;
-          cursor: not-allowed;
-        }
-        .error-banner {
-          background: #FEF2F2;
-          border: 1px solid #FEE2E2;
-          color: #991B1B;
-          border-radius: 10px;
-          padding: 11px 14px;
-          font-size: 13.5px;
-          margin-bottom: 18px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
       `}</style>
 
       {/* ── NAVBAR ── */}
       <nav className="auth-navbar">
-        <div className="auth-logo" onClick={() => navigate("/")}>
-          <div className="logo-icon-badge">🩺</div>
-          <h3>Med<span>QRate</span></h3>
+        <div className="d-flex align-items-center gap-3">
+          <button className="btn-back-nav" onClick={() => navigate("/")} title="Go back to Home">
+            ← Back to Home
+          </button>
+          <div className="auth-logo" onClick={() => navigate("/")}>
+            <div className="logo-icon-badge">🩺</div>
+            <h3 className="d-none d-sm-block">Med<span style={{ color: "#0D9488" }}>QRate</span></h3>
+          </div>
         </div>
-        <button className="btn-login-top" onClick={() => navigate("/login")}>
-          Already registered? <strong>Sign In</strong>
+
+        <button
+          className="btn-back-nav"
+          onClick={() => navigate("/login")}
+          style={{ background: "#F1F5F9", color: "#0D9488", fontWeight: 700 }}
+        >
+          Sign In
         </button>
       </nav>
 
       {/* ── REGISTER FORM CARD ── */}
       <div className="auth-wrapper">
         <div className="auth-card">
-          <h2 className="auth-title">Create an Account</h2>
-          <p className="auth-sub">Select your account type and fill in your details</p>
+          <h2 className="fw-bold mb-1" style={{ fontSize: "24px", color: "#0F172A" }}>Create an Account</h2>
+          <p className="text-muted mb-4" style={{ fontSize: "14px" }}>Select account type and complete your medical profile</p>
 
           {/* Role Switcher */}
           <div className="role-switch-container">
@@ -254,19 +290,19 @@ function Register() {
           </div>
 
           {error && (
-            <div className="error-banner">
-              <span>⚠️</span>
-              <div>{error}</div>
+            <div className="p-3 mb-3 rounded-2 text-danger" style={{ background: "#FEF2F2", border: "1px solid #FEE2E2", fontSize: "13.5px" }}>
+              ⚠️ {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit}>
             <div>
-              <label className="form-label">Full Name</label>
+              <label className="form-label">Full Name *</label>
               <input
                 className="auth-input"
                 name="name"
-                placeholder={role === "DOCTOR" ? "Dr. John Doe" : "Jane Smith"}
+                placeholder={role === "DOCTOR" ? "Dr. Full Name" : "Patient Full Name"}
+                value={formData.name}
                 onChange={handleChange}
                 required
               />
@@ -274,23 +310,25 @@ function Register() {
 
             <div className="row g-2">
               <div className="col-sm-6">
-                <label className="form-label">Email Address</label>
+                <label className="form-label">Email Address *</label>
                 <input
                   className="auth-input"
                   type="email"
                   name="email"
                   placeholder="name@example.com"
+                  value={formData.email}
                   onChange={handleChange}
                   required
                 />
               </div>
               <div className="col-sm-6">
-                <label className="form-label">Password</label>
+                <label className="form-label">Password * (Min 6 chars)</label>
                 <input
                   className="auth-input"
                   type="password"
                   name="password"
-                  placeholder="Min 6 characters"
+                  placeholder="••••••••"
+                  value={formData.password}
                   onChange={handleChange}
                   required
                   minLength={6}
@@ -306,6 +344,7 @@ function Register() {
                     className="auth-input"
                     name="dob"
                     type="date"
+                    value={formData.dob}
                     onChange={handleChange}
                   />
                 </div>
@@ -316,40 +355,55 @@ function Register() {
                     type="number"
                     name="age"
                     placeholder="e.g. 28"
+                    value={formData.age}
                     onChange={handleChange}
                   />
                 </div>
               </div>
             ) : (
               <div className="row g-2">
+                {/* Speciality Dropdown */}
                 <div className="col-sm-6">
-                  <label className="form-label">Speciality</label>
-                  <input
+                  <label className="form-label">Speciality *</label>
+                  <select
                     className="auth-input"
                     name="speciality"
-                    placeholder="e.g. Cardiologist"
+                    value={formData.speciality}
                     onChange={handleChange}
-                  />
+                    required
+                  >
+                    {SPECIALITIES.map((spec) => (
+                      <option key={spec} value={spec}>{spec}</option>
+                    ))}
+                  </select>
                 </div>
+
+                {/* Qualification Dropdown */}
                 <div className="col-sm-6">
-                  <label className="form-label">Qualification</label>
-                  <input
+                  <label className="form-label">Qualification *</label>
+                  <select
                     className="auth-input"
                     name="qualification"
-                    placeholder="e.g. MBBS, MD"
+                    value={formData.qualification}
                     onChange={handleChange}
-                  />
+                    required
+                  >
+                    {QUALIFICATIONS.map((qual) => (
+                      <option key={qual} value={qual}>{qual}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             )}
 
             <div className="row g-2">
               <div className="col-sm-6">
-                <label className="form-label">Address / City</label>
+                <label className="form-label">Clinic / Home Address</label>
                 <input
                   className="auth-input"
                   name="address"
-                  placeholder="e.g. Pune, MH"
+                  placeholder="e.g. Pune, Maharashtra"
+                  value={formData.address}
                   onChange={handleChange}
                 />
               </div>
@@ -359,13 +413,14 @@ function Register() {
                   className="auth-input"
                   name="phone"
                   placeholder="e.g. 9876543210"
+                  value={formData.phone}
                   onChange={handleChange}
                 />
               </div>
             </div>
 
             <button className="btn-auth-submit" type="submit" disabled={loading}>
-              {loading ? "Creating Account..." : "Complete Registration"}
+              {loading ? "Registering Account..." : "Complete Registration"}
             </button>
           </form>
 

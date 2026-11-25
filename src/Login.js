@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
+import Toast from "./Toast";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:8080/api";
 
@@ -11,6 +12,7 @@ function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [toast, setToast] = useState(null);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -19,13 +21,18 @@ function Login() {
     try {
       const res = await axios.post(`${API}/auth/login`, { email, password });
       localStorage.setItem("user", JSON.stringify(res.data));
-      if (res.data.role === "PATIENT") {
-        navigate("/patient-home");
-      } else {
-        navigate("/doctor-home");
-      }
+      setToast({ message: `Welcome back, ${res.data.name}! Signing in...`, type: "success" });
+      setTimeout(() => {
+        if (res.data.role === "PATIENT") {
+          navigate("/patient-home");
+        } else {
+          navigate("/doctor-home");
+        }
+      }, 900);
     } catch (err) {
-      setError("Invalid email or password. Please verify your credentials.");
+      const msg = "Invalid email or password. Please verify your credentials.";
+      setError(msg);
+      setToast({ message: msg, type: "error" });
     } finally {
       setLoading(false);
     }
@@ -39,10 +46,19 @@ function Login() {
       setEmail("patient@medqrate.com");
       setPassword("password123");
     }
+    setToast({ message: `Autofilled ${role} credentials!`, type: "info" });
   };
 
   return (
     <div style={{ backgroundColor: "#F8FAFC", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       <style>{`
         .auth-navbar {
           background: #FFFFFF;
@@ -78,23 +94,24 @@ function Login() {
           font-size: 20px;
           letter-spacing: -0.03em;
         }
-        .auth-logo span {
-          color: #0D9488;
-        }
-        .btn-register-top {
-          background: #F1F5F9;
-          color: #334155;
+        .btn-back-nav {
+          background: #F8FAFC;
+          color: #475569;
           border: 1px solid #CBD5E1;
-          border-radius: 10px;
-          padding: 8px 18px;
+          border-radius: 8px;
+          padding: 7px 14px;
           font-weight: 600;
           font-size: 13.5px;
           cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
           transition: all 0.2s ease;
         }
-        .btn-register-top:hover {
-          background: #E2E8F0;
+        .btn-back-nav:hover {
+          background: #F1F5F9;
           color: #0F172A;
+          border-color: #94A3B8;
         }
 
         .auth-wrapper {
@@ -118,17 +135,6 @@ function Login() {
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(14px); }
           to { opacity: 1; transform: translateY(0); }
-        }
-        .auth-title {
-          font-size: 24px;
-          font-weight: 800;
-          color: #0F172A;
-          margin-bottom: 6px;
-        }
-        .auth-sub {
-          color: #64748B;
-          font-size: 14px;
-          margin-bottom: 24px;
         }
         .form-label {
           font-size: 13.5px;
@@ -171,22 +177,6 @@ function Login() {
           transform: translateY(-1px);
           box-shadow: 0 6px 16px rgba(13, 148, 136, 0.35);
         }
-        .btn-auth-submit:disabled {
-          opacity: 0.65;
-          cursor: not-allowed;
-        }
-        .error-banner {
-          background: #FEF2F2;
-          border: 1px solid #FEE2E2;
-          color: #991B1B;
-          border-radius: 10px;
-          padding: 11px 14px;
-          font-size: 13.5px;
-          margin-bottom: 18px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
         .quick-fill-box {
           background: #F8FAFC;
           border: 1px dashed #CBD5E1;
@@ -200,12 +190,11 @@ function Login() {
           background: #FFFFFF;
           border: 1px solid #CBD5E1;
           border-radius: 6px;
-          padding: 3px 10px;
+          padding: 4px 10px;
           font-size: 12px;
           font-weight: 600;
           color: #0F766E;
           cursor: pointer;
-          margin-left: 6px;
           transition: background 0.15s ease;
         }
         .quick-fill-btn:hover {
@@ -216,12 +205,22 @@ function Login() {
 
       {/* ── NAVBAR ── */}
       <nav className="auth-navbar">
-        <div className="auth-logo" onClick={() => navigate("/")}>
-          <div className="logo-icon-badge">🩺</div>
-          <h3>Med<span>QRate</span></h3>
+        <div className="d-flex align-items-center gap-3">
+          <button className="btn-back-nav" onClick={() => navigate("/")} title="Go back to Home">
+            ← Back to Home
+          </button>
+          <div className="auth-logo" onClick={() => navigate("/")}>
+            <div className="logo-icon-badge">🩺</div>
+            <h3 className="d-none d-sm-block">Med<span style={{ color: "#0D9488" }}>QRate</span></h3>
+          </div>
         </div>
-        <button className="btn-register-top" onClick={() => navigate("/register")}>
-          Need an account? <strong>Register</strong>
+
+        <button
+          className="btn-back-nav"
+          onClick={() => navigate("/register")}
+          style={{ background: "#F1F5F9", color: "#0D9488", fontWeight: 700 }}
+        >
+          Register
         </button>
       </nav>
 
@@ -229,15 +228,14 @@ function Login() {
       <div className="auth-wrapper">
         <div className="auth-card">
           <div className="d-flex align-items-center gap-2 mb-2">
-            <span style={{ fontSize: "20px" }}>🔐</span>
-            <h2 className="auth-title mb-0">Sign In to MedQRate</h2>
+            <span style={{ fontSize: "22px" }}>🔐</span>
+            <h2 className="fw-bold mb-0" style={{ fontSize: "24px", color: "#0F172A" }}>Sign In</h2>
           </div>
-          <p className="auth-sub">Enter your credentials to access your dashboard</p>
+          <p className="text-muted mb-4" style={{ fontSize: "14px" }}>Enter your credentials to access your clinical dashboard</p>
 
           {error && (
-            <div className="error-banner">
-              <span>⚠️</span>
-              <div>{error}</div>
+            <div className="p-3 mb-3 rounded-2 text-danger" style={{ background: "#FEF2F2", border: "1px solid #FEE2E2", fontSize: "13.5px" }}>
+              ⚠️ {error}
             </div>
           )}
 
@@ -271,9 +269,9 @@ function Login() {
             </button>
           </form>
 
-          {/* Quick Demo Credentials for evaluators */}
+          {/* Quick Demo Credentials */}
           <div className="quick-fill-box">
-            <div className="fw-semibold mb-1 text-slate-700">⚡ Demo Autofill:</div>
+            <div className="fw-semibold mb-2 text-slate-700">⚡ Demo Quick Fill:</div>
             <div className="d-flex gap-2 flex-wrap">
               <button
                 type="button"

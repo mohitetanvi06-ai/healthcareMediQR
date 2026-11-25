@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { QRCodeCanvas } from "qrcode.react";
 import "bootstrap/dist/css/bootstrap.min.css";
+import Toast from "./Toast";
 
 const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8080/api";
 
@@ -17,9 +18,29 @@ function DoctorHome() {
   const [preview,      setPreview]      = useState(null);
   const [loading,      setLoading]      = useState(false);
   const [copied,       setCopied]       = useState(false);
+  const [toast,        setToast]        = useState(null);
 
-  // QR prescription state
-  const emptyRx = { patientName:"", medicine:"", dosage:"", frequency:"", duration:"", instructions:"", doctorName: user?.name||"" };
+  // Notifications state (Point 4)
+  const [showNotifDrawer, setShowNotifDrawer] = useState(false);
+  const [readNotifIds,    setReadNotifIds]    = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(`doctor_read_notifs_${doctorId}`) || "[]");
+    } catch {
+      return [];
+    }
+  });
+
+  // QR prescription state with structured dropdowns (Point 5)
+  const emptyRx = {
+    patientName: "",
+    medicine: "",
+    dosage: "1 Tablet",
+    frequency: "Twice Daily (Morning & Night)",
+    timing: "After Meals",
+    duration: "5 Days",
+    instructions: "",
+    doctorName: user?.name || ""
+  };
   const [rxForm,      setRxForm]      = useState(emptyRx);
   const [qrValue,     setQrValue]     = useState("");
   const [showQrForm,  setShowQrForm]  = useState(false);
@@ -27,22 +48,75 @@ function DoctorHome() {
 
   // ── Load data ──
   const loadAppointments = async () => {
-    try { const r = await axios.get(`${BASE_URL}/appointments/doctor/${doctorId}`); setAppointments(r.data); }
-    catch(e) { console.log(e); }
+    try {
+      const r = await axios.get(`${BASE_URL}/appointments/doctor/${doctorId}`);
+      setAppointments(r.data);
+    } catch (e) {
+      console.log(e);
+    }
   };
   const loadPatients = async () => {
-    try { const r = await axios.get(`${BASE_URL}/auth/patients`); setPatients(r.data); }
-    catch(e) { console.log(e); }
+    try {
+      const r = await axios.get(`${BASE_URL}/auth/patients`);
+      setPatients(r.data);
+    } catch (e) {
+      console.log(e);
+    }
   };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (doctorId) { loadAppointments(); loadPatients(); } }, [doctorId]);
+  useEffect(() => {
+    if (doctorId) {
+      loadAppointments();
+      loadPatients();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doctorId]);
 
   const handleShowRegisters = async () => {
-    try { const r = await axios.get(`${BASE_URL}/auth/all`); setAllUsers(r.data); setShowRegisters(!showRegisters); }
-    catch(e) { console.log(e); }
+    try {
+      const r = await axios.get(`${BASE_URL}/auth/all`);
+      setAllUsers(r.data);
+      setShowRegisters(!showRegisters);
+    } catch (e) {
+      console.log(e);
+    }
   };
 
-  // ── Upload prescription image ──
+  // ── Notifications calculation (Point 4) ──
+  const notifications = appointments.map(app => {
+    const isRead = readNotifIds.includes(app.id);
+    return {
+      id: app.id,
+      patientName: app.patient?.name || "Patient",
+      patientEmail: app.patient?.email || "",
+      enquiry: app.enquiry || "Consultation requested",
+      status: app.status,
+      isRead
+    };
+  });
+  const unreadCount = notifications.filter(n => !n.isRead && n.status === "PENDING").length;
+
+  const markNotificationRead = (id) => {
+    const updated = [...readNotifIds, id];
+    setReadNotifIds(updated);
+    try {
+      localStorage.setItem(`doctor_read_notifs_${doctorId}`, JSON.stringify(updated));
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  const markAllNotificationsRead = () => {
+    const allIds = appointments.map(a => a.id);
+    setReadNotifIds(allIds);
+    try {
+      localStorage.setItem(`doctor_read_notifs_${doctorId}`, JSON.stringify(allIds));
+    } catch (e) {
+      console.log(e);
+    }
+    setToast({ message: "All notifications marked as read.", type: "info" });
+  };
+
+  // ── Upload prescription image (Point 7: Toastify instead of alert) ──
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -52,34 +126,47 @@ function DoctorHome() {
   };
 
   const handleSendPrescription = async () => {
-    if (!preview) { alert("Please upload a prescription image."); return; }
+    if (!preview) {
+      setToast({ message: "Please upload a prescription image.", type: "warning" });
+      return;
+    }
     try {
       setLoading(true);
       await axios.put(`${BASE_URL}/appointments/approve/${selectedAppt.id}`, { imagePath: preview });
-      alert("Prescription submitted and sent to patient successfully!");
-      setSelectedAppt(null); setPreview(null); loadAppointments();
-    } catch { alert("Error sending prescription. Please try again."); }
-    finally { setLoading(false); }
+      setToast({ message: "Prescription submitted and sent to patient successfully!", type: "success" });
+      setSelectedAppt(null);
+      setPreview(null);
+      loadAppointments();
+    } catch {
+      setToast({ message: "Error sending prescription. Please try again.", type: "error" });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // ── Generate QR data ──
+  // ── Generate QR data (Point 5: Dropdown list fields included) ──
   const handleGenerateQR = () => {
-    if (!rxForm.medicine.trim()) { alert("Please enter medicine name."); return; }
-    const date = new Date().toLocaleDateString("en-IN", { day:"2-digit", month:"long", year:"numeric" });
+    if (!rxForm.medicine.trim()) {
+      setToast({ message: "Please enter medicine name.", type: "warning" });
+      return;
+    }
+    const date = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
     const data = [
       "MedQRate Prescription",
       "-------------------",
-      `Patient: ${rxForm.patientName}`,
+      `Patient: ${rxForm.patientName || "General Patient"}`,
       `Doctor: Dr. ${rxForm.doctorName}`,
       `Medicine: ${rxForm.medicine}`,
       `Dosage: ${rxForm.dosage}`,
-      `Frequency: ${rxForm.frequency}`,
+      `Time & Frequency: ${rxForm.frequency}`,
+      `Meal Timing: ${rxForm.timing}`,
       `Duration: ${rxForm.duration}`,
-      `Instructions: ${rxForm.instructions}`,
+      `Instructions: ${rxForm.instructions || "None"}`,
       `Date: ${date}`,
     ].join("\n");
     setQrValue(data);
     setQrGenerated(true);
+    setToast({ message: "QR Prescription generated successfully!", type: "success" });
   };
 
   // ── Download QR image ──
@@ -90,12 +177,13 @@ function DoctorHome() {
     a.href = canvas.toDataURL("image/png");
     a.download = `prescription_${rxForm.patientName || "patient"}_${Date.now()}.png`;
     a.click();
+    setToast({ message: "Prescription QR downloaded!", type: "success" });
   };
 
   // ── Share on WhatsApp ──
   const handleWhatsApp = () => {
     const text = encodeURIComponent(
-      `💊 *MedQRate Prescription*\n\nPatient: ${rxForm.patientName}\nDoctor: Dr. ${rxForm.doctorName}\nMedicine: ${rxForm.medicine}\nDosage: ${rxForm.dosage}\nFrequency: ${rxForm.frequency}\nDuration: ${rxForm.duration}\nInstructions: ${rxForm.instructions}\n\n📲 Download the QR code from the MedQRate portal to store your prescription securely.`
+      `💊 *MedQRate Prescription*\n\nPatient: ${rxForm.patientName || "General Patient"}\nDoctor: Dr. ${rxForm.doctorName}\nMedicine: ${rxForm.medicine}\nDosage: ${rxForm.dosage}\nFrequency: ${rxForm.frequency}\nMeal Timing: ${rxForm.timing}\nDuration: ${rxForm.duration}\nInstructions: ${rxForm.instructions || "None"}\n\n📲 Download the QR code from the MedQRate portal to store your prescription securely.`
     );
     window.open(`https://wa.me/?text=${text}`, "_blank");
   };
@@ -104,11 +192,14 @@ function DoctorHome() {
   const handleCopy = () => {
     navigator.clipboard.writeText(qrValue);
     setCopied(true);
+    setToast({ message: "Prescription text copied to clipboard!", type: "info" });
     setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <div style={{ backgroundColor: "#F8FAFC", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
       <style>{`
         /* ── NAVBAR ── */
         .doc-navbar {
@@ -247,7 +338,7 @@ function DoctorHome() {
         .rx-lbl {
           font-weight: 700;
           color: #0F766E;
-          min-width: 120px;
+          min-width: 130px;
         }
         .upload-zone {
           border: 2px dashed #CBD5E1;
@@ -282,19 +373,161 @@ function DoctorHome() {
         }
       `}</style>
 
-      {/* ── NAVBAR ── */}
+      {/* ── NAVBAR (Point 3: Back arrow, Point 4: Notification Bell) ── */}
       <nav className="navbar px-4 px-md-5 py-3 doc-navbar">
-        <div className="d-flex align-items-center gap-2">
-          <div className="logo-icon-badge">🩺</div>
-          <div>
-            <h5 className="fw-bold mb-0" style={{ color: "#0F172A", fontSize: "18px" }}>
-              Med<span style={{ color: "#0D9488" }}>QRate</span>
-            </h5>
-            <div style={{ fontSize: "11px", color: "#64748B", fontWeight: 600 }}>Doctor Clinical Desk</div>
+        <div className="d-flex align-items-center gap-3">
+          <a
+            href="/"
+            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+            style={{ borderRadius: "8px", fontWeight: 600, fontSize: "13px", textDecoration: "none" }}
+          >
+            ← Back to Home
+          </a>
+
+          <div className="d-flex align-items-center gap-2">
+            <div className="logo-icon-badge">🩺</div>
+            <div>
+              <h5 className="fw-bold mb-0" style={{ color: "#0F172A", fontSize: "18px" }}>
+                Med<span style={{ color: "#0D9488" }}>QRate</span>
+              </h5>
+              <div style={{ fontSize: "11px", color: "#64748B", fontWeight: 600 }}>Doctor Clinical Desk</div>
+            </div>
           </div>
         </div>
 
         <div className="ms-auto d-flex align-items-center gap-3">
+          {/* Notification Bell (Point 4) */}
+          <div className="position-relative">
+            <button
+              type="button"
+              className="btn btn-light position-relative p-2"
+              style={{
+                borderRadius: "50%",
+                border: "1px solid #E2E8F0",
+                width: "40px",
+                height: "40px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "17px",
+                cursor: "pointer",
+                background: unreadCount > 0 ? "#F0FDFA" : "#FFFFFF"
+              }}
+              onClick={() => setShowNotifDrawer(!showNotifDrawer)}
+              title="Patient Consultation Notifications"
+            >
+              🔔
+              {unreadCount > 0 && (
+                <span
+                  className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                  style={{ fontSize: "10.5px", padding: "3px 6px" }}
+                >
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Notification Dropdown / Panel */}
+            {showNotifDrawer && (
+              <div
+                className="position-absolute end-0 mt-2 bg-white rounded-3 shadow-lg border"
+                style={{
+                  width: "360px",
+                  maxWidth: "90vw",
+                  zIndex: 1050,
+                  borderColor: "#CBD5E1",
+                  animation: "fadeUp 0.2s ease"
+                }}
+              >
+                <div className="p-3 border-bottom d-flex align-items-center justify-content-between bg-light rounded-top-3">
+                  <div className="d-flex align-items-center gap-2">
+                    <span style={{ fontSize: "16px" }}>🔔</span>
+                    <strong style={{ fontSize: "14px", color: "#0F172A" }}>
+                      Patient Booking Alerts
+                    </strong>
+                    {unreadCount > 0 && (
+                      <span className="badge bg-danger rounded-pill" style={{ fontSize: "11px" }}>
+                        {unreadCount} new
+                      </span>
+                    )}
+                  </div>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllNotificationsRead}
+                      className="btn btn-link p-0 text-decoration-none"
+                      style={{ fontSize: "12px", color: "#0D9488", fontWeight: 600 }}
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ maxHeight: "360px", overflowY: "auto" }}>
+                  {notifications.length === 0 ? (
+                    <div className="p-4 text-center text-muted" style={{ fontSize: "13px" }}>
+                      No appointment notifications yet.
+                    </div>
+                  ) : (
+                    notifications.map(n => (
+                      <div
+                        key={n.id}
+                        className="p-3 border-bottom"
+                        style={{
+                          background: n.isRead ? "#FFFFFF" : "#F0FDFA",
+                          cursor: "pointer",
+                          transition: "background 0.2s"
+                        }}
+                        onClick={() => {
+                          if (!n.isRead) markNotificationRead(n.id);
+                          const targetAppt = appointments.find(a => a.id === n.id);
+                          if (targetAppt) {
+                            setSelectedAppt(targetAppt);
+                            const el = document.getElementById("appointment-requests-section");
+                            if (el) el.scrollIntoView({ behavior: "smooth" });
+                          }
+                          setShowNotifDrawer(false);
+                        }}
+                      >
+                        <div className="d-flex align-items-start justify-content-between gap-2">
+                          <div>
+                            <div className="fw-bold" style={{ fontSize: "13.5px", color: "#0F172A" }}>
+                              {n.patientName} booked an appointment
+                            </div>
+                            <div className="text-muted text-truncate" style={{ fontSize: "12px", maxWidth: "230px" }}>
+                              "{n.enquiry}"
+                            </div>
+                          </div>
+                          {!n.isRead && (
+                            <span
+                              className="badge"
+                              style={{ background: "#0D9488", color: "white", fontSize: "10px" }}
+                            >
+                              NEW
+                            </span>
+                          )}
+                        </div>
+                        <div className="d-flex align-items-center justify-content-between mt-2" style={{ fontSize: "11px", color: "#64748B" }}>
+                          <span>Status: <strong style={{ color: n.status === "APPROVED" ? "#10B981" : "#F59E0B" }}>{n.status}</strong></span>
+                          <span style={{ color: "#0D9488", fontWeight: 600 }}>Review Details →</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="p-2 text-center bg-light rounded-bottom-3 border-top">
+                  <button
+                    className="btn btn-sm btn-link text-decoration-none"
+                    style={{ fontSize: "12px", color: "#64748B" }}
+                    onClick={() => setShowNotifDrawer(false)}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="user-pill d-none d-md-flex">
             <span style={{ fontSize: "16px" }}>👨‍⚕️</span>
             <div style={{ fontSize: "13px" }}>
@@ -302,6 +535,7 @@ function DoctorHome() {
               <span className="text-muted ms-1">({user?.speciality || "Physician"})</span>
             </div>
           </div>
+
           <button
             className="btn-logout"
             onClick={() => { localStorage.removeItem("user"); window.location = "/"; }}
@@ -385,8 +619,8 @@ function DoctorHome() {
           )}
         </div>
 
-        {/* ── APPOINTMENT REQUESTS ── */}
-        <div className="mb-5">
+        {/* ── APPOINTMENT REQUESTS (Point 4: Targets for notifications) ── */}
+        <div id="appointment-requests-section" className="mb-5">
           <div className="d-flex align-items-center justify-content-between mb-3">
             <h5 className="fw-bold mb-0" style={{ fontSize: "18px" }}>
               📥 Patient Consultation Requests
@@ -421,8 +655,15 @@ function DoctorHome() {
                 <div className="d-flex align-items-center gap-2">
                   {app.status === "PENDING" && (
                     <button
-                      className="btn-primary-medical"
-                      style={{ padding: "6px 16px", fontSize: "13px" }}
+                      className="btn btn-primary"
+                      style={{
+                        background: "linear-gradient(135deg, #0D9488 0%, #0284C7 100%)",
+                        border: "none",
+                        borderRadius: "8px",
+                        padding: "6px 16px",
+                        fontSize: "13px",
+                        fontWeight: 600
+                      }}
                       onClick={() => { setSelectedAppt(app); setPreview(null); }}
                     >
                       📤 Review & Attach Prescription
@@ -464,8 +705,15 @@ function DoctorHome() {
 
               <div className="d-flex gap-2 flex-wrap">
                 <button
-                  className="btn-primary-medical"
-                  style={{ padding: "8px 20px", fontSize: "13.5px" }}
+                  className="btn btn-primary"
+                  style={{
+                    background: "linear-gradient(135deg, #0D9488 0%, #0284C7 100%)",
+                    border: "none",
+                    borderRadius: "8px",
+                    padding: "8px 20px",
+                    fontSize: "13.5px",
+                    fontWeight: 600
+                  }}
                   onClick={handleSendPrescription}
                   disabled={loading}
                 >
@@ -483,7 +731,7 @@ function DoctorHome() {
           )}
         </div>
 
-        {/* ── QR PRESCRIPTION GENERATOR ── */}
+        {/* ── QR PRESCRIPTION GENERATOR (Point 5: Dropdown lists for timing/frequency/duration) ── */}
         <div className="qr-wrap mb-4">
           <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
             <div>
@@ -491,7 +739,7 @@ function DoctorHome() {
                 📲 Digital QR Prescription Generator
               </h5>
               <p className="text-muted mb-0" style={{ fontSize: "13px" }}>
-                Generate an encrypted digital prescription containing medication, dosage and schedule
+                Generate an encrypted digital prescription containing medication, dosage, schedule dropdowns and instructions
               </p>
             </div>
             <button
@@ -519,40 +767,90 @@ function DoctorHome() {
                   <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Medicine Name *</label>
                   <input
                     className="form-control"
-                    placeholder="e.g. Amoxicillin 500mg"
+                    placeholder="e.g. Paracetamol 650mg / Amoxicillin 500mg"
                     value={rxForm.medicine}
                     onChange={e => setRxForm({ ...rxForm, medicine: e.target.value })}
                   />
                 </div>
               </div>
 
+              {/* Point 5: Dropdown list selectors for Dosage, Time & Frequency, Meal Timing, and Duration */}
               <div className="row g-3 mb-3">
-                <div className="col-md-4">
-                  <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Dosage</label>
-                  <input
-                    className="form-control"
-                    placeholder="e.g. 1 Tablet"
+                <div className="col-md-3">
+                  <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Dosage (खुराक)</label>
+                  <select
+                    className="form-select"
                     value={rxForm.dosage}
                     onChange={e => setRxForm({ ...rxForm, dosage: e.target.value })}
-                  />
+                  >
+                    <option value="1 Tablet">1 Tablet</option>
+                    <option value="2 Tablets">2 Tablets</option>
+                    <option value="0.5 Tablet (Half)">0.5 Tablet (Half)</option>
+                    <option value="1 Capsule">1 Capsule</option>
+                    <option value="2 Capsules">2 Capsules</option>
+                    <option value="5 ml (1 Teaspoon)">5 ml (1 Teaspoon)</option>
+                    <option value="10 ml (2 Teaspoons)">10 ml (2 Teaspoons)</option>
+                    <option value="15 ml (1 Tablespoon)">15 ml (1 Tablespoon)</option>
+                    <option value="1 Puff / Inhalation">1 Puff / Inhalation</option>
+                    <option value="2 Puffs / Inhalations">2 Puffs / Inhalations</option>
+                    <option value="2 Drops">2 Drops</option>
+                    <option value="Apply Thin Layer">Apply Thin Layer (Ointment)</option>
+                    <option value="Custom Dosage">Custom Dosage</option>
+                  </select>
                 </div>
-                <div className="col-md-4">
-                  <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Frequency</label>
-                  <input
-                    className="form-control"
-                    placeholder="e.g. Twice daily (After meals)"
+
+                <div className="col-md-3">
+                  <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Time & Frequency (वेळ व वारंवारता)</label>
+                  <select
+                    className="form-select"
                     value={rxForm.frequency}
                     onChange={e => setRxForm({ ...rxForm, frequency: e.target.value })}
-                  />
+                  >
+                    <option value="Once Daily (Morning)">Once Daily (Morning / सकाळी)</option>
+                    <option value="Once Daily (Night)">Once Daily (Night / रात्री)</option>
+                    <option value="Twice Daily (Morning & Night)">Twice Daily (Morning & Night / सकाळ-संध्याकाळ)</option>
+                    <option value="Thrice Daily (Morning, Afternoon & Night)">Thrice Daily (सकाळ, दुपार व रात्र)</option>
+                    <option value="Every 6 Hours (4 Times a Day)">Every 6 Hours (4 Times a Day)</option>
+                    <option value="Every 8 Hours">Every 8 Hours</option>
+                    <option value="Every 12 Hours">Every 12 Hours</option>
+                    <option value="Once a Week">Once a Week</option>
+                    <option value="As Needed (SOS / दुखणे असल्यास)">As Needed (SOS / दुखणे असल्यास)</option>
+                  </select>
                 </div>
-                <div className="col-md-4">
-                  <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Duration</label>
-                  <input
-                    className="form-control"
-                    placeholder="e.g. 5 Days"
+
+                <div className="col-md-3">
+                  <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Meal Relationship (जेवण वेळेचे प्रमाण)</label>
+                  <select
+                    className="form-select"
+                    value={rxForm.timing}
+                    onChange={e => setRxForm({ ...rxForm, timing: e.target.value })}
+                  >
+                    <option value="After Meals">After Meals (जेवणानंतर)</option>
+                    <option value="Before Meals (Empty Stomach)">Before Meals (रिकाम्या पोटी)</option>
+                    <option value="With Meals">With Meals (जेवणासोबत)</option>
+                    <option value="30 Minutes Before Meals">30 Minutes Before Meals</option>
+                    <option value="At Bedtime">At Bedtime (झोपताना)</option>
+                    <option value="Independent of Meals">Independent of Meals</option>
+                  </select>
+                </div>
+
+                <div className="col-md-3">
+                  <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Duration (कालावधी)</label>
+                  <select
+                    className="form-select"
                     value={rxForm.duration}
                     onChange={e => setRxForm({ ...rxForm, duration: e.target.value })}
-                  />
+                  >
+                    <option value="3 Days">3 Days</option>
+                    <option value="5 Days">5 Days</option>
+                    <option value="7 Days (1 Week)">7 Days (1 Week)</option>
+                    <option value="10 Days">10 Days</option>
+                    <option value="14 Days (2 Weeks)">14 Days (2 Weeks)</option>
+                    <option value="21 Days (3 Weeks)">21 Days (3 Weeks)</option>
+                    <option value="1 Month (30 Days)">1 Month (30 Days)</option>
+                    <option value="3 Months (Chronic Care)">3 Months (Chronic Care)</option>
+                    <option value="SOS / Till Relief">SOS / Till Relief</option>
+                  </select>
                 </div>
               </div>
 
@@ -567,8 +865,15 @@ function DoctorHome() {
               </div>
 
               <button
-                className="btn-primary-medical"
-                style={{ padding: "9px 24px", fontSize: "14px" }}
+                className="btn btn-primary"
+                style={{
+                  background: "linear-gradient(135deg, #0D9488 0%, #0284C7 100%)",
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "9px 24px",
+                  fontSize: "14px",
+                  fontWeight: 600
+                }}
                 onClick={handleGenerateQR}
               >
                 ⚡ Generate Prescription QR
@@ -585,13 +890,14 @@ function DoctorHome() {
                   {/* Summary Table */}
                   <div className="rx-table" style={{ maxWidth: "540px", margin: "0 auto 16px" }}>
                     {[
-                      ["Patient", rxForm.patientName || "Jane Smith"],
+                      ["Patient", rxForm.patientName || "General Patient"],
                       ["Doctor", `Dr. ${rxForm.doctorName}`],
                       ["Medicine", rxForm.medicine],
                       ["Dosage", rxForm.dosage],
-                      ["Frequency", rxForm.frequency],
+                      ["Time & Frequency", rxForm.frequency],
+                      ["Meal Timing", rxForm.timing],
                       ["Duration", rxForm.duration],
-                      ["Instructions", rxForm.instructions],
+                      ["Instructions", rxForm.instructions || "None"],
                       ["Issued Date", new Date().toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" })]
                     ].map(([lbl, val]) => val ? (
                       <div className="rx-row" key={lbl}>

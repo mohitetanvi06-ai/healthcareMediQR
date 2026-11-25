@@ -1,9 +1,91 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 
+const CLINICAL_FEATURES = [
+  {
+    id: "qr-rx",
+    icon: "📄",
+    title: "Digital QR Prescriptions",
+    desc: "Generate, download, and share structured medical prescriptions with a single click.",
+    badge: "Paperless & Instant",
+    details: {
+      overview: "Eliminate handwriting errors, lost prescription slips, and pharmacy misinterpretations with high-density encrypted QR codes.",
+      patientBenefits: "Store medical prescriptions directly on your phone. Scan using camera or image upload to view dosage anytime.",
+      doctorBenefits: "Generate standard digital prescriptions in under 30 seconds with dosage schedules, meal timings, and special instructions.",
+      howItWorks: "1. Doctor fills medication, dosage & duration. 2. QR code is generated instantly. 3. Patient scans or downloads it to set automated reminders."
+    }
+  },
+  {
+    id: "reminders",
+    icon: "⏰",
+    title: "Smart Pill Reminders",
+    desc: "Never miss medications with browser notification alerts and audio synthesizer chimes.",
+    badge: "Audio-Visual Alerts",
+    details: {
+      overview: "Patient adherence to medication is essential for recovery. MedQRate features built-in Web Audio synthesis and HTML5 Notifications.",
+      patientBenefits: "Timely alerts with customized frequencies (Daily, Weekdays, Weekends) so you never skip or double-dose medication.",
+      doctorBenefits: "Reduces relapse rates and complications caused by skipped antibiotic courses or irregular chronic disease medication.",
+      howItWorks: "1. Tap 'Set Reminder' directly from your digital prescription. 2. Browser chimes at the exact scheduled time with clear medicine names."
+    }
+  },
+  {
+    id: "appointments",
+    icon: "📅",
+    title: "Seamless Appointments",
+    desc: "Find specialist doctors by name or discipline and book consultations effortlessly.",
+    badge: "Specialist Directory",
+    details: {
+      overview: "Search an extensive clinical directory of certified physicians, cardiologists, dermatologists, and specialists in your vicinity.",
+      patientBenefits: "View doctor qualifications (MBBS, MD), speciality, clinic address, and book consultations in just a few taps.",
+      doctorBenefits: "Receive organized consultation requests with chief complaints and symptoms highlighted before patient visit.",
+      howItWorks: "1. Search doctor by discipline. 2. Enter symptoms. 3. Doctor receives instant desktop notification to review and prescribe."
+    }
+  },
+  {
+    id: "doctor-desk",
+    icon: "📊",
+    title: "Doctor Clinical Desk",
+    desc: "Review patient enquiries, attach prescription charts, and track daily clinical load.",
+    badge: "Physician Hub",
+    details: {
+      overview: "An all-in-one clinical management cockpit designed specifically for busy medical practitioners and hospital clinics.",
+      patientBenefits: "Faster consultation responses and structured electronic medical records attached to your profile.",
+      doctorBenefits: "Track pending appointment requests, view registered patient directories, and attach digital prescriptions easily.",
+      howItWorks: "1. Doctor logs into the practitioner portal. 2. Reviews pending enquiries. 3. Approves and uploads digital QR chart."
+    }
+  },
+  {
+    id: "patient-hub",
+    icon: "📱",
+    title: "Patient Health Hub",
+    desc: "Track appointment progress, download QR cards, and manage dosage times in one portal.",
+    badge: "Personal Health Desk",
+    details: {
+      overview: "A clean, private medical dashboard putting your medical appointments, prescriptions, and dosage routines in one place.",
+      patientBenefits: "No bulky physical files required. Access your verified prescription history from any phone, laptop, or tablet.",
+      doctorBenefits: "Patients arrive better prepared with organized past consultation records and clear symptom timelines.",
+      howItWorks: "1. Log in to Patient Dashboard. 2. View approved doctor prescriptions. 3. Toggle intake schedules with simple switches."
+    }
+  },
+  {
+    id: "security",
+    icon: "🔒",
+    title: "Secure & Compliant",
+    desc: "Encrypted data transmission keeping patient medical records and vitals safeguarded.",
+    badge: "Enterprise Security",
+    details: {
+      overview: "Medical data requires maximum confidentiality. MedQRate uses secure SHA-256 cryptographic hashing and role-based access control.",
+      patientBenefits: "Your personal health records, consultation enquiries, and prescriptions remain strictly confidential.",
+      doctorBenefits: "Complies with modern electronic medical records (EMR) guidelines for authorized doctor-patient communications.",
+      howItWorks: "1. Passwords hashed using SHA-256. 2. Role-based isolation ensures patients only see their own prescriptions."
+    }
+  }
+];
+
 function LandingPage() {
   const navigate = useNavigate();
+  const [selectedFeature, setSelectedFeature] = useState(null);
 
   return (
     <div style={{ backgroundColor: "#F8FAFC", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -85,7 +167,6 @@ function LandingPage() {
         .btn-nav-register:hover {
           opacity: 0.95;
           transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(13, 148, 136, 0.35);
         }
 
         /* ── HERO SECTION ── */
@@ -242,17 +323,20 @@ function LandingPage() {
         }
         .feat-card {
           background: #FFFFFF;
-          border: 1px solid #E2E8F0;
+          border: 1.5px solid #E2E8F0;
           border-radius: 16px;
           padding: 26px;
           height: 100%;
           transition: all 0.25s ease;
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+          cursor: pointer;
+          display: flex;
+          flex-direction: column;
         }
         .feat-card:hover {
           transform: translateY(-4px);
-          box-shadow: 0 12px 24px -6px rgba(13, 148, 136, 0.1);
-          border-color: #99F6E4;
+          box-shadow: 0 12px 24px -6px rgba(13, 148, 136, 0.15);
+          border-color: #0D9488;
         }
         .feat-icon-box {
           width: 52px;
@@ -277,6 +361,49 @@ function LandingPage() {
           font-size: 14.5px;
           line-height: 1.6;
           margin: 0;
+          flex: 1;
+        }
+        .feat-learn-more {
+          margin-top: 16px;
+          font-size: 13px;
+          font-weight: 700;
+          color: #0D9488;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        /* ── MODAL ── */
+        .feat-modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(15, 23, 42, 0.65);
+          backdrop-filter: blur(4px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 99999;
+          padding: 20px;
+          animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .feat-modal-box {
+          background: #FFFFFF;
+          border-radius: 20px;
+          max-width: 580px;
+          width: 100%;
+          padding: 32px;
+          box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+          animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          max-height: 90vh;
+          overflow-y: auto;
+        }
+        @keyframes slideUp {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
         }
 
         /* ── CTA ── */
@@ -313,7 +440,6 @@ function LandingPage() {
         .btn-cta-primary:hover {
           background: #F8FAFC;
           transform: translateY(-2px);
-          box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
         }
         .btn-cta-secondary {
           background: rgba(255, 255, 255, 0.15);
@@ -325,10 +451,6 @@ function LandingPage() {
           font-size: 15px;
           cursor: pointer;
           transition: all 0.2s ease;
-        }
-        .btn-cta-secondary:hover {
-          background: rgba(255, 255, 255, 0.25);
-          border-color: #FFFFFF;
         }
 
         /* ── FOOTER ── */
@@ -350,12 +472,106 @@ function LandingPage() {
           display: block;
           margin-bottom: 8px;
           cursor: pointer;
-          transition: color 0.2s ease;
         }
         .footer-link:hover {
           color: #38BDF8;
         }
       `}</style>
+
+      {/* ── CLINICAL FEATURE DETAILS MODAL (Point 8) ── */}
+      {selectedFeature && (
+        <div className="feat-modal-overlay" onClick={() => setSelectedFeature(null)}>
+          <div className="feat-modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="d-flex justify-content-between align-items-start mb-3">
+              <div className="d-flex align-items-center gap-3">
+                <div style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 14,
+                  background: "#F0FDFA",
+                  border: "1.5px solid #CCFBF1",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 28
+                }}>
+                  {selectedFeature.icon}
+                </div>
+                <div>
+                  <span style={{ background: "#E0F2FE", color: "#0369A1", fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>
+                    {selectedFeature.badge}
+                  </span>
+                  <h4 className="fw-bold mb-0 mt-1" style={{ color: "#0F172A", fontSize: 20 }}>
+                    {selectedFeature.title}
+                  </h4>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedFeature(null)}
+                style={{ background: "#F1F5F9", border: "none", borderRadius: "50%", width: 34, height: 34, fontSize: 16, cursor: "pointer", color: "#64748B" }}
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ color: "#475569", fontSize: 14.5, lineHeight: 1.6, marginBottom: 20 }}>
+              {selectedFeature.details.overview}
+            </p>
+
+            {/* Benefits Grid */}
+            <div className="row g-3 mb-3">
+              <div className="col-sm-6">
+                <div style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 12, padding: 16, height: "100%" }}>
+                  <div className="fw-bold mb-1" style={{ color: "#0D9488", fontSize: 13.5 }}>
+                    👤 For Patients
+                  </div>
+                  <div style={{ fontSize: 13, color: "#64748B", lineHeight: 1.5 }}>
+                    {selectedFeature.details.patientBenefits}
+                  </div>
+                </div>
+              </div>
+              <div className="col-sm-6">
+                <div style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 12, padding: 16, height: "100%" }}>
+                  <div className="fw-bold mb-1" style={{ color: "#0284C7", fontSize: 13.5 }}>
+                    🩺 For Doctors & Clinics
+                  </div>
+                  <div style={{ fontSize: 13, color: "#64748B", lineHeight: 1.5 }}>
+                    {selectedFeature.details.doctorBenefits}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Workflow steps */}
+            <div style={{ background: "#F0FDFA", border: "1px solid #CCFBF1", borderRadius: 12, padding: 16, marginBottom: 24 }}>
+              <div className="fw-bold mb-1" style={{ color: "#0F766E", fontSize: 13.5 }}>
+                ⚡ How It Works in MedQRate:
+              </div>
+              <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.6 }}>
+                {selectedFeature.details.howItWorks}
+              </div>
+            </div>
+
+            <div className="d-flex gap-2 justify-content-end">
+              <button
+                className="btn btn-light"
+                style={{ border: "1px solid #CBD5E1", borderRadius: 10, padding: "8px 18px", fontSize: 14, fontWeight: 600 }}
+                onClick={() => setSelectedFeature(null)}
+              >
+                Close
+              </button>
+              <button
+                className="btn-nav-register"
+                style={{ padding: "8px 22px", fontSize: 14 }}
+                onClick={() => navigate("/register")}
+              >
+                Get Started with this Feature →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── NAVBAR ── */}
       <nav className="land-navbar">
@@ -433,31 +649,31 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* ── FEATURES ── */}
+      {/* ── CLINICAL FEATURES SECTION (Point 8) ── */}
       <section className="features-section">
         <div className="container">
           <div className="section-header">
             <div className="section-tag">Clinical Features</div>
             <h2 className="section-title">Designed for Modern Medical Practice</h2>
             <p className="text-muted mt-2" style={{ maxWidth: "560px", margin: "0 auto", fontSize: "15px" }}>
-              Everything needed to streamline patient consultations, avoid dosage errors, and speed up clinical approvals.
+              Click any clinical feature below to explore its workflow, clinical advantages, and patient benefits.
             </p>
           </div>
 
           <div className="row g-4">
-            {[
-              { icon: "📄", title: "Digital QR Prescriptions", desc: "Generate, download, and share structured medical prescriptions with a single click." },
-              { icon: "⏰", title: "Smart Pill Reminders", desc: "Never miss medications with browser notification alerts and audio synthesizer chimes." },
-              { icon: "📅", title: "Seamless Appointments", desc: "Find specialist doctors by name or discipline and book consultations effortlessly." },
-              { icon: "📊", title: "Doctor Clinical Desk", desc: "Review patient enquiries, attach prescription charts, and track daily clinical load." },
-              { icon: "📱", title: "Patient Health Hub", desc: "Track appointment progress, download QR cards, and manage dosage times in one portal." },
-              { icon: "🔒", title: "Secure & Compliant", desc: "Encrypted data transmission keeping patient medical records and vitals safeguarded." },
-            ].map((item, i) => (
-              <div className="col-md-4 col-sm-6" key={i}>
-                <div className="feat-card">
+            {CLINICAL_FEATURES.map((item) => (
+              <div className="col-md-4 col-sm-6" key={item.id}>
+                <div
+                  className="feat-card"
+                  onClick={() => setSelectedFeature(item)}
+                  title="Click to learn more"
+                >
                   <div className="feat-icon-box">{item.icon}</div>
                   <h5>{item.title}</h5>
                   <p>{item.desc}</p>
+                  <div className="feat-learn-more">
+                    Learn clinical details <span>→</span>
+                  </div>
                 </div>
               </div>
             ))}

@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
+import Toast from "./Toast";
 
 const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8080/api";
 
@@ -22,6 +24,7 @@ function playAlarm() {
 }
 
 function PatientHome() {
+  const navigate  = useNavigate();
   const user      = JSON.parse(localStorage.getItem("user"));
   const patientId = user?.id;
 
@@ -31,6 +34,7 @@ function PatientHome() {
   const [selectedDoc,   setSelectedDoc]   = useState(null);
   const [enquiry,       setEnquiry]       = useState("");
   const [loading,       setLoading]       = useState(false);
+  const [toast,         setToast]         = useState(null);
 
   // View prescription QR modal
   const [viewingRx, setViewingRx] = useState(null);
@@ -44,7 +48,7 @@ function PatientHome() {
   const [reminderForm,     setReminderForm]     = useState(emptyForm);
   const [notifPerm,        setNotifPerm]        = useState(typeof Notification!=="undefined" ? Notification.permission : "denied");
   const [showReminderForm, setShowReminderForm] = useState(false);
-  const [toast,            setToast]            = useState(null);
+  const [alarmToast,       setAlarmToast]       = useState(null);
   const intervalRef = useRef(null);
 
   // ── Persist reminders ──
@@ -65,16 +69,35 @@ function PatientHome() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (patientId) loadAppointments(); }, [patientId]);
 
-  // ── Book appointment ──
+  // ── Select Doctor and Auto-scroll to form (Point 1 & 2) ──
+  const handleSelectDoctor = (doc) => {
+    setSelectedDoc(doc);
+    setTimeout(() => {
+      const el = document.getElementById("booking-form-section");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 120);
+  };
+
+  // ── Book appointment (Point 7 Toast) ──
   const handleBook = async () => {
-    if (!enquiry.trim()) { alert("Please enter your enquiry."); return; }
+    if (!enquiry.trim()) {
+      setToast({ message: "Please describe your symptoms or enquiry.", type: "warning" });
+      return;
+    }
     try {
       setLoading(true);
       await axios.post(`${BASE_URL}/appointments/book/${patientId}/${selectedDoc.id}`, { enquiry });
-      alert("Appointment submitted successfully! Your doctor has been notified.");
-      setSelectedDoc(null); setEnquiry(""); loadAppointments();
-    } catch { alert("Error booking appointment. Please try again."); }
-    finally { setLoading(false); }
+      setToast({ message: `Appointment requested successfully with Dr. ${selectedDoc.name}!`, type: "success" });
+      setSelectedDoc(null);
+      setEnquiry("");
+      loadAppointments();
+    } catch {
+      setToast({ message: "Error booking appointment. Please try again.", type: "error" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ── Reminder checker ──
@@ -93,8 +116,8 @@ function PatientHome() {
           if (sessionStorage.getItem(key)) return;
           sessionStorage.setItem(key,"1");
           if (r.sound!==false) playAlarm();
-          setToast({ medicineName:r.medicineName, notes:r.notes });
-          setTimeout(() => setToast(null), 10000);
+          setAlarmToast({ medicineName:r.medicineName, notes:r.notes });
+          setTimeout(() => setAlarmToast(null), 10000);
           if (Notification.permission==="granted") new Notification("💊 Medicine Reminder — MedQRate", { body:`Time to take: ${r.medicineName}` });
           if (r.frequency==="once") setReminders(prev => prev.map(x => x.id===r.id ? {...x,active:false}:x));
         });
@@ -112,9 +135,14 @@ function PatientHome() {
 
   const handleAddReminder = () => {
     const vt = reminderForm.times.filter(t=>t.trim());
-    if (!reminderForm.medicineName.trim()||!vt.length) { alert("Enter medicine name and at least one time."); return; }
+    if (!reminderForm.medicineName.trim()||!vt.length) {
+      setToast({ message: "Enter medicine name and at least one time slot.", type: "warning" });
+      return;
+    }
     setReminders(prev => [...prev, { id:Date.now(), ...reminderForm, times:vt, active:true }]);
-    setReminderForm(emptyForm); setShowReminderForm(false);
+    setReminderForm(emptyForm);
+    setShowReminderForm(false);
+    setToast({ message: "Medicine schedule saved successfully!", type: "success" });
   };
 
   // ── Set reminder from prescription ──
@@ -124,15 +152,31 @@ function PatientHome() {
     document.getElementById("reminder-anchor")?.scrollIntoView({ behavior:"smooth" });
   };
 
-  const filteredDocs = doctors.filter(d => d.name?.toLowerCase().includes(search.toLowerCase()) || d.speciality?.toLowerCase().includes(search.toLowerCase()));
+  const filteredDocs = doctors.filter(d =>
+    d.name?.toLowerCase().includes(search.toLowerCase()) ||
+    d.speciality?.toLowerCase().includes(search.toLowerCase()) ||
+    d.qualification?.toLowerCase().includes(search.toLowerCase())
+  );
   const freqLabel    = { daily:"Every Day", weekdays:"Weekdays", weekends:"Weekends", once:"Once" };
   const freqColor    = { daily:"#0D9488",   weekdays:"#0284C7", weekends:"#D97706",   once:"#10B981" };
 
   // Approved prescriptions with QR image
   const approvedWithRx = appointments.filter(a => a.status==="APPROVED" && a.imagePath);
 
+  // Helper map for doctor details lookup
+  const doctorMap = {};
+  doctors.forEach(d => { doctorMap[d.id] = d; });
+
   return (
     <div style={{ backgroundColor: "#F8FAFC", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       <style>{`
         /* ── NAVBAR ── */
         .p-navbar {
@@ -153,6 +197,25 @@ function PatientHome() {
           justify-content: center;
           color: white;
           font-size: 19px;
+        }
+        .btn-back-nav {
+          background: #F8FAFC;
+          color: #475569;
+          border: 1px solid #CBD5E1;
+          border-radius: 8px;
+          padding: 6px 12px;
+          font-weight: 600;
+          font-size: 13px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          transition: all 0.2s ease;
+        }
+        .btn-back-nav:hover {
+          background: #F1F5F9;
+          color: #0F172A;
+          border-color: #94A3B8;
         }
         .user-pill {
           background: #F1F5F9;
@@ -201,47 +264,74 @@ function PatientHome() {
         /* ── DOCTOR CARD ── */
         .doc-card {
           border-radius: 14px;
-          border: 1px solid #E2E8F0;
+          border: 1.5px solid #E2E8F0;
           background: #FFFFFF;
-          padding: 16px;
+          padding: 18px;
           transition: all 0.2s ease;
+          display: flex;
+          flex-direction: column;
+          height: 100%;
         }
         .doc-card:hover {
-          border-color: #99F6E4;
-          box-shadow: 0 6px 16px -2px rgba(13, 148, 136, 0.08);
+          border-color: #0D9488;
+          box-shadow: 0 8px 20px -4px rgba(13, 148, 136, 0.12);
           transform: translateY(-2px);
         }
         .doc-avatar {
-          width: 48px;
-          height: 48px;
-          border-radius: 12px;
+          width: 52px;
+          height: 52px;
+          border-radius: 14px;
           background: #F0FDFA;
           border: 1px solid #CCFBF1;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 22px;
+          font-size: 26px;
           flex-shrink: 0;
+        }
+        .badge-spec {
+          background: #F0FDFA;
+          color: #0F766E;
+          border: 1px solid #CCFBF1;
+          font-weight: 700;
+          font-size: 11.5px;
+          border-radius: 6px;
+          padding: 2px 8px;
+          display: inline-block;
+        }
+        .badge-qual {
+          background: #EFF6FF;
+          color: #0369A1;
+          border: 1px solid #BFDBFE;
+          font-weight: 600;
+          font-size: 11px;
+          border-radius: 6px;
+          padding: 2px 8px;
+          display: inline-block;
         }
         .btn-book {
           background: linear-gradient(135deg, #0D9488 0%, #0284C7 100%);
           color: white;
           border: none;
           border-radius: 8px;
-          padding: 7px 16px;
+          padding: 8px 18px;
           font-weight: 600;
           font-size: 13.5px;
           cursor: pointer;
           transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          gap: 6px;
         }
         .btn-book:hover {
           opacity: 0.95;
           transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
         }
 
         /* ── APPOINTMENT CARD ── */
         .appt-card {
-          border-radius: 12px;
+          border-radius: 14px;
           border: 1px solid #E2E8F0;
           border-left: 4px solid #0D9488;
           background: #FFFFFF;
@@ -265,17 +355,6 @@ function PatientHome() {
           padding: 4px 12px;
           font-size: 12px;
           font-weight: 600;
-        }
-
-        /* ── PRESCRIPTION CARD ── */
-        .rx-appt-card {
-          background: #FFFFFF;
-          border: 1px solid #E2E8F0;
-          border-radius: 14px;
-          padding: 18px 20px;
-          margin-bottom: 12px;
-          border-left: 4px solid #10B981;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.02);
         }
 
         /* ── REMINDERS ── */
@@ -381,7 +460,7 @@ function PatientHome() {
           color: #92400E;
         }
 
-        /* ── TOAST ── */
+        /* ── TOAST ALERT ── */
         .toast-pop {
           position: fixed;
           top: 80px;
@@ -424,19 +503,19 @@ function PatientHome() {
         }
       `}</style>
 
-      {/* ── TOAST ── */}
-      {toast && (
+      {/* ── ALARM TOAST ── */}
+      {alarmToast && (
         <div className="toast-pop">
           <div className="d-flex gap-3 align-items-start">
             <span style={{ fontSize: 26 }}>💊</span>
             <div>
               <div className="fw-bold" style={{ fontSize: 14.5 }}>Time to take your medication</div>
-              <div style={{ color: "#38BDF8" }}>{toast.medicineName}</div>
-              {toast.notes && <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>{toast.notes}</div>}
+              <div style={{ color: "#38BDF8" }}>{alarmToast.medicineName}</div>
+              {alarmToast.notes && <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>{alarmToast.notes}</div>}
             </div>
           </div>
           <button
-            onClick={() => setToast(null)}
+            onClick={() => setAlarmToast(null)}
             style={{ marginTop: 12, width: "100%", background: "rgba(255,255,255,0.15)", border: "none", color: "white", borderRadius: 6, padding: "5px", fontWeight: 600, cursor: "pointer", fontSize: 12 }}
           >
             Dismiss Alert
@@ -485,15 +564,20 @@ function PatientHome() {
         </div>
       )}
 
-      {/* ── NAVBAR ── */}
+      {/* ── NAVBAR (Point 3 Back Arrow) ── */}
       <nav className="navbar px-4 px-md-5 py-3 p-navbar">
-        <div className="d-flex align-items-center gap-2">
-          <div className="logo-icon-badge">🩺</div>
-          <div>
-            <h5 className="fw-bold mb-0" style={{ color: "#0F172A", fontSize: "18px" }}>
-              Med<span style={{ color: "#0D9488" }}>QRate</span>
-            </h5>
-            <div style={{ fontSize: "11px", color: "#64748B", fontWeight: 600 }}>Patient Health Portal</div>
+        <div className="d-flex align-items-center gap-3">
+          <button className="btn-back-nav" onClick={() => navigate("/")} title="Go back to Home">
+            ← Home
+          </button>
+          <div className="d-flex align-items-center gap-2">
+            <div className="logo-icon-badge">🩺</div>
+            <div>
+              <h5 className="fw-bold mb-0" style={{ color: "#0F172A", fontSize: "18px" }}>
+                Med<span style={{ color: "#0D9488" }}>QRate</span>
+              </h5>
+              <div style={{ fontSize: "11px", color: "#64748B", fontWeight: 600 }}>Patient Health Portal</div>
+            </div>
           </div>
         </div>
 
@@ -516,7 +600,7 @@ function PatientHome() {
       {/* ── MAIN DASHBOARD CONTAINER ── */}
       <div className="container py-4" style={{ flex: 1, maxWidth: "1080px" }}>
 
-        {/* ── SEARCH DOCTORS ── */}
+        {/* ── SEARCH DOCTORS (Point 2: Full Info) ── */}
         <div className="sec-card">
           <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
             <h5 className="sec-title mb-0">👨‍⚕️ Find a Specialist Doctor</h5>
@@ -527,7 +611,7 @@ function PatientHome() {
             type="text"
             className="form-control mb-4"
             style={{ padding: "12px 16px", borderRadius: "10px" }}
-            placeholder="🔍 Search doctor by name or speciality (e.g. Cardiologist)..."
+            placeholder="🔍 Search doctor by name, speciality (e.g. Cardiologist), or qualification..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -536,15 +620,30 @@ function PatientHome() {
             {filteredDocs.map(doc => (
               <div className="col-md-6" key={doc.id}>
                 <div className="doc-card">
-                  <div className="d-flex align-items-center gap-3">
+                  <div className="d-flex align-items-start gap-3">
                     <div className="doc-avatar">👨‍⚕️</div>
                     <div style={{ flex: 1 }}>
-                      <div className="fw-bold text-slate-900" style={{ fontSize: "15px" }}>Dr. {doc.name}</div>
-                      <div style={{ fontSize: "12.5px", color: "#0D9488", fontWeight: 600 }}>{doc.speciality || "General Practitioner"}</div>
-                      <div style={{ fontSize: "12px", color: "#64748B" }}>📍 {doc.address || "Pune, MH"}</div>
+                      <div className="d-flex align-items-center justify-content-between flex-wrap gap-1">
+                        <div className="fw-bold text-slate-900" style={{ fontSize: "16px" }}>Dr. {doc.name}</div>
+                        {doc.qualification && (
+                          <span className="badge-qual">🎓 {doc.qualification}</span>
+                        )}
+                      </div>
+
+                      <div className="mt-1 d-flex gap-2 flex-wrap align-items-center">
+                        <span className="badge-spec">🩺 {doc.speciality || "General Physician"}</span>
+                      </div>
+
+                      <div className="mt-2" style={{ fontSize: "12.5px", color: "#64748B" }}>
+                        <div>📍 {doc.address || "Medical Clinic, Pune"}</div>
+                        {doc.phone && <div className="mt-1">📞 Contact: {doc.phone}</div>}
+                      </div>
                     </div>
-                    <button className="btn-book" onClick={() => setSelectedDoc(doc)}>
-                      Book
+                  </div>
+
+                  <div className="mt-3 pt-2 border-top d-flex justify-content-end">
+                    <button className="btn-book" onClick={() => handleSelectDoctor(doc)}>
+                      📅 Book Consultation
                     </button>
                   </div>
                 </div>
@@ -558,31 +657,69 @@ function PatientHome() {
           </div>
         </div>
 
-        {/* ── BOOK CONSULTATION FORM (CONDITIONAL) ── */}
+        {/* ── BOOK CONSULTATION FORM (Point 1: Auto-scroll & Point 2: Doctor Info) ── */}
         {selectedDoc && (
-          <div className="sec-card" style={{ border: "2px solid #0D9488", backgroundColor: "#F0FDFA" }}>
-            <h5 className="sec-title" style={{ color: "#0F766E" }}>
-              📅 Schedule Consultation with Dr. {selectedDoc.name}
-            </h5>
-            <p className="text-muted" style={{ fontSize: "13px", marginTop: "-10px", marginBottom: "14px" }}>
-              {selectedDoc.speciality} • {selectedDoc.qualification || "MD"}
-            </p>
-            <label className="form-label fw-semibold" style={{ fontSize: "13.5px" }}>Symptoms / Reason for Visit *</label>
+          <div
+            id="booking-form-section"
+            className="sec-card"
+            style={{
+              border: "2px solid #0D9488",
+              backgroundColor: "#F0FDFA",
+              boxShadow: "0 10px 25px -5px rgba(13, 148, 136, 0.15)",
+              animation: "fadeIn 0.3s ease"
+            }}
+          >
+            <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-3">
+              <div>
+                <h5 className="sec-title mb-0" style={{ color: "#0F766E" }}>
+                  📅 Schedule Consultation
+                </h5>
+                <span style={{ fontSize: "13px", color: "#64748B" }}>Confirm appointment details below</span>
+              </div>
+              <button
+                className="btn btn-sm btn-outline-secondary rounded-circle"
+                onClick={() => setSelectedDoc(null)}
+                title="Cancel"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Doctor Info Banner in Booking Section (Point 2) */}
+            <div className="p-3 bg-white rounded-3 border mb-3 d-flex align-items-center gap-3" style={{ borderColor: "#CCFBF1" }}>
+              <div className="doc-avatar" style={{ background: "#F0FDFA" }}>👨‍⚕️</div>
+              <div style={{ flex: 1 }}>
+                <div className="fw-bold" style={{ fontSize: "16px", color: "#0F172A" }}>
+                  Dr. {selectedDoc.name}
+                </div>
+                <div className="d-flex gap-2 flex-wrap mt-1">
+                  <span className="badge-spec">🩺 {selectedDoc.speciality || "General Physician"}</span>
+                  <span className="badge-qual">🎓 {selectedDoc.qualification || "MBBS, MD"}</span>
+                </div>
+                <div className="mt-1" style={{ fontSize: "12px", color: "#64748B" }}>
+                  📍 {selectedDoc.address || "Pune, Maharashtra"} | 📞 {selectedDoc.phone || "Available"}
+                </div>
+              </div>
+            </div>
+
+            <label className="form-label fw-semibold" style={{ fontSize: "13.5px", color: "#0F172A" }}>
+              Chief Complaints / Symptoms for Visit *
+            </label>
             <textarea
               className="form-control mb-3"
               rows={3}
-              placeholder="Describe your current health complaints, symptoms, or enquiry..."
+              placeholder="Describe your current symptoms, medical history, or reason for enquiry..."
               value={enquiry}
               onChange={e => setEnquiry(e.target.value)}
             />
             <div className="d-flex gap-2">
               <button
                 className="btn-primary-medical"
-                style={{ padding: "8px 22px", fontSize: "14px" }}
+                style={{ padding: "9px 24px", fontSize: "14px" }}
                 onClick={handleBook}
                 disabled={loading}
               >
-                {loading ? "Submitting..." : "Confirm & Send Request"}
+                {loading ? "Submitting Request..." : "Confirm & Send to Doctor"}
               </button>
               <button
                 className="btn btn-light"
@@ -595,7 +732,7 @@ function PatientHome() {
           </div>
         )}
 
-        {/* ── MY APPOINTMENTS ── */}
+        {/* ── MY APPOINTMENTS (Point 2: Shows Doctor Speciality & Details) ── */}
         <div className="sec-card">
           <h5 className="sec-title">📋 Consultation History & Requests</h5>
           {appointments.length === 0 && (
@@ -603,36 +740,47 @@ function PatientHome() {
               No consultation requests yet. Find a doctor above to request an appointment.
             </div>
           )}
-          {appointments.map(app => (
-            <div key={app.id} className="appt-card">
-              <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <div>
-                  <div className="fw-bold" style={{ fontSize: "15px", color: "#0F172A" }}>
-                    Dr. {app.doctor?.name}
+          {appointments.map(app => {
+            const docInfo = doctorMap[app.doctorId];
+            return (
+              <div key={app.id} className="appt-card">
+                <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <div>
+                    <div className="d-flex align-items-center gap-2 flex-wrap">
+                      <div className="fw-bold" style={{ fontSize: "15px", color: "#0F172A" }}>
+                        Dr. {app.doctor?.name}
+                      </div>
+                      {docInfo?.speciality && (
+                        <span className="badge-spec" style={{ fontSize: "11px" }}>{docInfo.speciality}</span>
+                      )}
+                      {docInfo?.qualification && (
+                        <span className="badge-qual" style={{ fontSize: "10.5px" }}>{docInfo.qualification}</span>
+                      )}
+                    </div>
+                    <div className="mt-1" style={{ fontSize: "13.5px", color: "#64748B" }}>
+                      Enquiry: {app.enquiry}
+                    </div>
                   </div>
-                  <div style={{ fontSize: "13.5px", color: "#64748B" }}>
-                    Enquiry: {app.enquiry}
+                  <div className="d-flex align-items-center gap-2">
+                    {app.status === "PENDING" && (
+                      <span className="badge-pending">⏳ Pending Review</span>
+                    )}
+                    {app.status === "APPROVED" && (
+                      <span className="badge-approved">✅ Approved</span>
+                    )}
+                    {app.status === "APPROVED" && app.imagePath && (
+                      <button
+                        className="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold"
+                        onClick={() => setViewingRx(app)}
+                      >
+                        📲 View QR Prescription
+                      </button>
+                    )}
                   </div>
-                </div>
-                <div className="d-flex align-items-center gap-2">
-                  {app.status === "PENDING" && (
-                    <span className="badge-pending">⏳ Pending Review</span>
-                  )}
-                  {app.status === "APPROVED" && (
-                    <span className="badge-approved">✅ Approved</span>
-                  )}
-                  {app.status === "APPROVED" && app.imagePath && (
-                    <button
-                      className="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold"
-                      onClick={() => setViewingRx(app)}
-                    >
-                      📲 View QR Prescription
-                    </button>
-                  )}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* ── MY PRESCRIPTION QRS ── */}
